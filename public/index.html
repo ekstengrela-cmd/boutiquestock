@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BoutiqueStock</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- ÉCRAN DE CONNEXION -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="login-icon">👕</div>
+        <h1>BoutiqueStock</h1>
+        <p>Gestion de stock et ventes</p>
+      </div>
+      <form id="login-form" autocomplete="off">
+        <div class="form-group">
+          <label for="login-username">Identifiant</label>
+          <input type="text" id="login-username" placeholder="Votre identifiant" required autofocus>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Mot de passe</label>
+          <input type="password" id="login-password" placeholder="Votre mot de passe" required>
+        </div>
+        <div id="login-error" class="error-banner" hidden></div>
+        <button type="submit" class="btn btn-primary btn-block" id="login-btn">Se connecter</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- APPLICATION PRINCIPALE -->
+  <div id="app-screen" class="app-screen" hidden>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <span class="sidebar-logo-icon">👕</span>
+          <div>
+            <div class="sidebar-app-name">BoutiqueStock</div>
+            <div id="sidebar-role" class="role-badge"></div>
+          </div>
+        </div>
+      </div>
+
+      <nav id="sidebar-nav" class="sidebar-nav"></nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar" id="user-avatar"></div>
+          <div class="user-info">
+            <div id="sidebar-username" class="user-name"></div>
+            <button onclick="logout()" class="btn-logout">Déconnexion</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content" id="main-content">
+      <div id="view-container" class="view-container"></div>
+    </main>
+
+  </div>
+
+  <!-- MODALE -->
+  <div id="modal-overlay" class="modal-overlay" hidden onclick="handleOverlayClick(event)">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h3 id="modal-title"></h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- TOASTS -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ZONE D'IMPRESSION (invisible à l'écran, visible uniquement à l'impression) -->
+  <div id="print-area"></div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

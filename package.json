@@ -1,0 +1,15 @@
+{
+  "name": "boutique-gestion",
+  "version": "1.0.0",
+  "description": "Gestion de stock et ventes pour boutique de vêtements",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "nodemailer": "^6.9.14"
+  }
+}

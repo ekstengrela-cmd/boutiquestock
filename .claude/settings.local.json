@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(node server.js)",
+      "Bash(curl -s http://localhost:3000/api/auth/me)",
+      "Bash(curl -s -c /tmp/cookies.txt -X POST http://localhost:3000/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
+      "Bash(curl -s -b /tmp/cookies.txt http://localhost:3000/api/products)",
+      "Bash(curl -s -b /tmp/cookies.txt -X POST http://localhost:3000/api/products -H 'Content-Type: application/json' -d '{\"name\":\"Polo Classic\",\"category\":\"polo_adulte\",\"grammage\":\"200g\",\"size\":\"L\",\"color\":\"Blanc\",\"price\":15.99,\"stock\":50,\"low_stock_threshold\":5}')",
+      "Bash(curl -s -b /tmp/cookies.txt http://localhost:3000/api/dashboard/stats)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('Products:', d['totalProducts'], '| Revenue:', d['totalRevenue']\\)\")",
+      "Bash(curl -s -b /tmp/cookies.txt -X POST http://localhost:3000/api/sales -H 'Content-Type: application/json' -d '{\"items\":[{\"product_id\":1,\"quantity\":2}]}')",
+      "Bash(python3 -c \"import sys,json; p=json.load\\(sys.stdin\\)[0]; print\\('Stock restant:', p['stock']\\)\")",
+      "Bash(mkdir -p \"C:\\\\Users\\\\KINGFLASH\\\\Desktop\\\\mon-app\\\\.claude\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(node seed.js)",
+      "Bash(node -e \"require\\('./server'\\)\")",
+      "PowerShell(Stop-Process -Name \"node\" -Force -ErrorAction SilentlyContinue)",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"admin123\"}' -c /tmp/c3.txt)",
+      "Bash(curl -s -b /tmp/c3.txt http://localhost:3000/api/settings)",
+      "Bash(curl -s -b /tmp/c3.txt -X PUT http://localhost:3000/api/settings -H 'Content-Type: application/json' -d '{\"email_enabled\":\"1\",\"smtp_host\":\"smtp.gmail.com\",\"smtp_port\":\"587\",\"smtp_user\":\"test@gmail.com\",\"alert_email\":\"patron@boutique.fr\",\"from_name\":\"BoutiqueStock\"}')",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}

@@ -8,6 +8,7 @@ const ADMIN_VIEWS = [
   { id: 'dashboard', icon: '📊', label: 'Tableau de bord' },
   { id: 'products',  icon: '👕', label: 'Produits' },
   { id: 'stock',     icon: '📦', label: 'Gestion du stock' },
+  { id: 'prices',    icon: '💰', label: 'Gestion des prix' },
   { id: 'sell',      icon: '🛒', label: 'Vente' },
   { id: 'history',   icon: '📋', label: 'Historique des ventes' },
   { id: 'sellers',   icon: '👥', label: 'Vendeurs' },
@@ -179,7 +180,7 @@ function navigate(viewId) {
     el.classList.toggle('active', el.dataset.view === viewId);
   });
   setView('<div class="loading">⏳ Chargement...</div>');
-  const fns = { dashboard: renderDashboard, products: renderProducts, stock: renderStock, sell: renderSell, history: renderHistory, sellers: renderSellers, settings: renderSettings };
+  const fns = { dashboard: renderDashboard, products: renderProducts, stock: renderStock, prices: renderPrices, sell: renderSell, history: renderHistory, sellers: renderSellers, settings: renderSettings };
   if (fns[viewId]) fns[viewId]().catch(err => setView(`<p class="empty-msg text-danger">Erreur: ${err.message}</p>`));
 }
 
@@ -1247,6 +1248,173 @@ async function confirmDeleteUser(userId) {
   } catch (err) {
     toast(err.message, 'error');
   }
+}
+
+/* ===================================================
+   GESTION DES PRIX
+=================================================== */
+async function renderPrices() {
+  allProducts = await api('GET', '/api/products') || [];
+
+  // Grouper par catégorie
+  const grouped = {};
+  allProducts.forEach(p => { (grouped[p.category] = grouped[p.category] || []).push(p); });
+
+  const sections = Object.entries(CATEGORIES)
+    .filter(([k]) => grouped[k])
+    .map(([cat, label]) => {
+      const rows = grouped[cat].map(p => {
+        const priceUnit = p.price_unit || Math.round(p.price / 12);
+        return `
+          <tr id="price-row-${p.id}">
+            <td>
+              <div style="font-weight:600">${p.name}</div>
+              <div class="text-muted">${[p.grammage, p.size, p.color].filter(Boolean).join(' · ')}</div>
+            </td>
+            <td>
+              <div class="price-input-wrap">
+                <input class="price-input" type="number" min="0" step="1"
+                  id="pdz-${p.id}" value="${p.price}"
+                  onchange="markPriceChanged(${p.id})"
+                  onkeydown="if(event.key==='Enter') saveSinglePrice(${p.id})">
+                <span class="price-currency">F CFA</span>
+              </div>
+            </td>
+            <td>
+              <div class="price-input-wrap">
+                <input class="price-input" type="number" min="0" step="1"
+                  id="pu-${p.id}" value="${priceUnit}"
+                  onchange="markPriceChanged(${p.id})"
+                  onkeydown="if(event.key==='Enter') saveSinglePrice(${p.id})">
+                <span class="price-currency">F CFA</span>
+              </div>
+            </td>
+            <td>
+              <button class="btn btn-sm btn-secondary" id="save-btn-${p.id}"
+                onclick="saveSinglePrice(${p.id})" style="opacity:.4;pointer-events:none">
+                💾 Sauver
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div class="category-section">
+          <div class="category-title">${categoryIcon(cat)} ${label}
+            <span class="category-count">${grouped[cat].length}</span>
+          </div>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Produit</th>
+                  <th>💰 Prix douzaine</th>
+                  <th>1️⃣ Prix unité</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  setView(`
+    <div class="view-header">
+      <div>
+        <h2>💰 Gestion des prix</h2>
+        <div class="view-subtitle">Modifiez un prix et cliquez 💾 Sauver — ou appuyez sur Entrée</div>
+      </div>
+      <button class="btn btn-success" onclick="saveAllPrices()">💾 Tout sauvegarder</button>
+    </div>
+
+    <div class="info-box" style="margin-bottom:1.25rem">
+      💡 <strong>Astuce :</strong> Laissez le prix unité à 0 pour qu'il soit calculé automatiquement (douzaine ÷ 12).
+      Appuyez sur <kbd style="background:var(--gray-200);padding:1px 5px;border-radius:4px">Entrée</kbd> après chaque modification pour sauvegarder rapidement.
+    </div>
+
+    <div id="prices-msg"></div>
+    ${sections}
+  `);
+}
+
+function markPriceChanged(productId) {
+  const btn = document.getElementById(`save-btn-${productId}`);
+  if (btn) {
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = 'auto';
+    btn.classList.add('btn-primary');
+    btn.classList.remove('btn-secondary');
+  }
+}
+
+async function saveSinglePrice(productId) {
+  const priceDz   = parseFloat(document.getElementById(`pdz-${productId}`)?.value) || 0;
+  const priceUnit = parseFloat(document.getElementById(`pu-${productId}`)?.value) || 0;
+  const btn       = document.getElementById(`save-btn-${productId}`);
+
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+
+  try {
+    await api('PUT', `/api/products/${productId}`, {
+      price:      priceDz,
+      price_unit: priceUnit || null,
+    });
+    if (btn) {
+      btn.textContent = '✅ Sauvé';
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-secondary');
+      setTimeout(() => {
+        btn.textContent = '💾 Sauver';
+        btn.style.opacity = '.4';
+        btn.style.pointerEvents = 'none';
+        btn.disabled = false;
+      }, 1500);
+    }
+    // Mettre à jour le cache local
+    const p = allProducts.find(x => x.id === productId);
+    if (p) { p.price = priceDz; p.price_unit = priceUnit || Math.round(priceDz / 12); }
+    toast(`Prix mis à jour`, 'success');
+  } catch (err) {
+    toast(err.message, 'error');
+    if (btn) { btn.textContent = '💾 Sauver'; btn.disabled = false; }
+  }
+}
+
+async function saveAllPrices() {
+  const rows = document.querySelectorAll('[id^="price-row-"]');
+  let saved = 0;
+  const btn = document.querySelector('.btn-success');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sauvegarde...'; }
+
+  for (const row of rows) {
+    const id        = parseInt(row.id.replace('price-row-', ''));
+    const priceDz   = parseFloat(document.getElementById(`pdz-${id}`)?.value) || 0;
+    const priceUnit = parseFloat(document.getElementById(`pu-${id}`)?.value) || 0;
+    try {
+      await api('PUT', `/api/products/${id}`, {
+        price:      priceDz,
+        price_unit: priceUnit || null,
+      });
+      const p = allProducts.find(x => x.id === id);
+      if (p) { p.price = priceDz; p.price_unit = priceUnit || Math.round(priceDz / 12); }
+      saved++;
+    } catch {}
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Tout sauvegarder'; }
+  toast(`${saved} prix sauvegardés avec succès`, 'success');
+
+  // Réinitialiser tous les boutons
+  document.querySelectorAll('[id^="save-btn-"]').forEach(b => {
+    b.textContent = '💾 Sauver';
+    b.style.opacity = '.4';
+    b.style.pointerEvents = 'none';
+    b.classList.remove('btn-primary');
+    b.classList.add('btn-secondary');
+  });
 }
 
 /* ===================================================

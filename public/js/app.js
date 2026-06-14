@@ -378,21 +378,22 @@ function showProductModal(productId = null) {
 
   openModal(title, `
     <form id="product-form" onsubmit="saveProduct(event, ${productId || 'null'})">
+
+      <div class="form-group">
+        <label>Nom du produit <span class="required">*</span></label>
+        <input class="form-control" name="name" required value="${p?.name || ''}"
+          placeholder="ex: Polo Standard, T-Shirt VIP..." autofocus>
+      </div>
+
       <div class="form-row">
         <div class="form-group">
-          <label>Nom <span class="required">*</span></label>
-          <input class="form-control" name="name" required value="${p?.name || ''}" placeholder="ex: Polo Classic">
-        </div>
-        <div class="form-group">
           <label>Catégorie <span class="required">*</span></label>
-          <select class="form-control" name="category" required onchange="onCategoryChange(this.value)" id="prod-cat-select">
+          <select class="form-control" name="category" required
+            onchange="onCategoryChange(this.value)" id="prod-cat-select">
             <option value="">— Choisir —</option>
             ${Object.entries(CATEGORIES).map(([k, v]) => `<option value="${k}" ${p?.category === k ? 'selected' : ''}>${v}</option>`).join('')}
           </select>
         </div>
-      </div>
-
-      <div class="form-row">
         <div class="form-group" id="grammage-group" ${!hasGrammage(p?.category) ? 'style="display:none"' : ''}>
           <label>Grammage</label>
           <select class="form-control" name="grammage" id="grammage-select">
@@ -400,29 +401,18 @@ function showProductModal(productId = null) {
             ${grammageOptions}
           </select>
         </div>
-        <div class="form-group" id="size-group">
-          <label>Taille</label>
-          <select class="form-control" name="size" id="size-select">
-            <option value="">— Choisir —</option>
-            ${p?.category ? sizeOptionsFor(p.category) : ''}
-          </select>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Couleur</label>
-        <input class="form-control" name="color" value="${p?.color || ''}" placeholder="ex: Blanc, Noir...">
       </div>
 
       <div class="form-row">
         <div class="form-group">
-          <label>Prix à la douzaine (F CFA) <span class="required">*</span></label>
-          <input class="form-control" name="price" type="number" step="1" min="0" required value="${p?.price ?? ''}" placeholder="ex: 12500">
+          <label>Prix douzaine (F CFA) <span class="required">*</span></label>
+          <input class="form-control" name="price" type="number" step="1" min="0"
+            required value="${p?.price ?? ''}" placeholder="ex: 12500">
         </div>
         <div class="form-group">
-          <label>Prix à l'unité (F CFA)</label>
-          <input class="form-control" name="price_unit" type="number" step="1" min="0" value="${p?.price_unit ?? ''}" placeholder="Auto = douzaine ÷ 12">
-          <div class="text-muted mt-1">Laissez vide pour calculer automatiquement.</div>
+          <label>Prix unité (F CFA)</label>
+          <input class="form-control" name="price_unit" type="number" step="1" min="0"
+            value="${p?.price_unit ?? ''}" placeholder="Auto (÷ 12)">
         </div>
       </div>
 
@@ -432,8 +422,8 @@ function showProductModal(productId = null) {
           <input class="form-control" name="stock" type="number" min="0" value="${p?.stock ?? 0}">
         </div>
         <div class="form-group">
-          <label>Seuil alerte stock</label>
-          <input class="form-control" name="low_stock_threshold" type="number" min="0" value="${p?.low_stock_threshold ?? 5}">
+          <label>Seuil alerte</label>
+          <input class="form-control" name="low_stock_threshold" type="number" min="0" value="${p?.low_stock_threshold ?? 12}">
         </div>
       </div>
 
@@ -448,18 +438,9 @@ function showProductModal(productId = null) {
   if (p?.category) onCategoryChange(p.category, true);
 }
 
-function onCategoryChange(cat, keepValues = false) {
+function onCategoryChange(cat) {
   const grammageGroup = document.getElementById('grammage-group');
-  const sizeSelect    = document.getElementById('size-select');
-  const currentSize   = keepValues ? sizeSelect?.value : '';
-
   if (grammageGroup) grammageGroup.style.display = hasGrammage(cat) ? '' : 'none';
-
-  if (sizeSelect) {
-    const sizes = getSizesForCategory(cat);
-    sizeSelect.innerHTML = '<option value="">— Choisir —</option>' +
-      sizes.map(s => `<option value="${s}" ${s === currentSize ? 'selected' : ''}>${s}</option>`).join('');
-  }
 }
 
 async function saveProduct(e, productId) {

@@ -170,18 +170,20 @@ app.get('/api/products', requireAuth, (req, res) => {
 });
 
 app.post('/api/products', requireAdmin, (req, res) => {
-  const { name, category, grammage, size, color, price, stock, low_stock_threshold } = req.body;
+  const { name, category, grammage, size, color, price, price_unit, stock, low_stock_threshold } = req.body;
   if (!name || !category || price === undefined || price === null) {
-    return res.status(400).json({ error: 'Nom, catégorie et prix sont requis' });
+    return res.status(400).json({ error: 'Nom, catégorie et prix douzaine sont requis' });
   }
+  const priceDz   = parseFloat(price);
+  const priceUnit = price_unit ? parseFloat(price_unit) : Math.round(priceDz / 12);
 
   const result = db.prepare(`
-    INSERT INTO products (name, category, grammage, size, color, price, stock, low_stock_threshold)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO products (name, category, grammage, size, color, price, price_unit, stock, low_stock_threshold)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     name.trim(), category,
     grammage || null, size || null, color ? color.trim() : null,
-    parseFloat(price), parseInt(stock) || 0, parseInt(low_stock_threshold) || 5
+    priceDz, priceUnit, parseInt(stock) || 0, parseInt(low_stock_threshold) || 5
   );
 
   res.json(db.prepare('SELECT * FROM products WHERE id = ?').get(result.lastInsertRowid));
@@ -191,14 +193,16 @@ app.put('/api/products/:id', requireAdmin, (req, res) => {
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
   if (!product) return res.status(404).json({ error: 'Produit introuvable' });
 
-  const { name, category, grammage, size, color, price, stock, low_stock_threshold } = req.body;
+  const { name, category, grammage, size, color, price, price_unit, stock, low_stock_threshold } = req.body;
+  const priceDz   = parseFloat(price ?? product.price);
+  const priceUnit = price_unit !== undefined ? parseFloat(price_unit) : (product.price_unit || Math.round(priceDz / 12));
   db.prepare(`
-    UPDATE products SET name=?, category=?, grammage=?, size=?, color=?, price=?, stock=?, low_stock_threshold=?, updated_at=CURRENT_TIMESTAMP
+    UPDATE products SET name=?, category=?, grammage=?, size=?, color=?, price=?, price_unit=?, stock=?, low_stock_threshold=?, updated_at=CURRENT_TIMESTAMP
     WHERE id=?
   `).run(
     name?.trim() || product.name, category || product.category,
     grammage || null, size || null, color ? color.trim() : null,
-    parseFloat(price ?? product.price), parseInt(stock ?? product.stock),
+    priceDz, priceUnit, parseInt(stock ?? product.stock),
     parseInt(low_stock_threshold ?? product.low_stock_threshold), req.params.id
   );
 
@@ -267,7 +271,8 @@ app.get('/api/sales', requireAuth, (req, res) => {
 
   const sales = db.prepare(`
     SELECT s.*, u.username AS seller_name, p.name AS product_name,
-           p.category, p.grammage, p.size, p.color
+           p.category, p.grammage, p.size, p.color,
+           COALESCE(s.unit_type, 'douzaine') AS unit_type
     FROM sales s
     JOIN users u ON s.user_id = u.id
     JOIN products p ON s.product_id = p.id
@@ -296,12 +301,17 @@ app.post('/api/sales', requireAuth, (req, res) => {
         throw new Error(`Stock insuffisant pour "${product.name}" (disponible: ${product.stock})`);
       }
 
-      const newStock = product.stock - item.quantity;
-      const total = product.price * item.quantity;
+      const unitType  = item.unit_type || 'douzaine';
+      const unitPrice = unitType === 'douzaine'
+        ? product.price
+        : (product.price_unit || Math.round(product.price / 12));
+      const newStock  = product.stock - item.quantity;
+      const total     = unitPrice * item.quantity;
+
       const result = db.prepare(`
-        INSERT INTO sales (user_id, product_id, quantity, unit_price, total_price)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(req.session.user.id, item.product_id, item.quantity, product.price, total);
+        INSERT INTO sales (user_id, product_id, quantity, unit_price, total_price, unit_type)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(req.session.user.id, item.product_id, item.quantity, unitPrice, total, unitType);
 
       db.prepare('UPDATE products SET stock = stock - ?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
         .run(item.quantity, item.product_id);
@@ -323,7 +333,8 @@ app.post('/api/sales', requireAuth, (req, res) => {
         sale_id: result.lastInsertRowid,
         product_name: product.name,
         quantity: item.quantity,
-        unit_price: product.price,
+        unit_type: unitType,
+        unit_price: unitPrice,
         total
       });
     }

@@ -21,7 +21,8 @@
       "Bash(curl -s -b /tmp/c3.txt -X PUT http://localhost:3000/api/settings -H 'Content-Type: application/json' -d '{\"email_enabled\":\"1\",\"smtp_host\":\"smtp.gmail.com\",\"smtp_port\":\"587\",\"smtp_user\":\"test@gmail.com\",\"alert_email\":\"patron@boutique.fr\",\"from_name\":\"BoutiqueStock\"}')",
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "PowerShell(Stop-Process -Id \\(Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -ErrorAction SilentlyContinue\\) -Force -ErrorAction SilentlyContinue; Start-Sleep 1; Write-Host \"OK\")"
     ]
   }
 }

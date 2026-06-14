@@ -48,6 +48,10 @@ function initDatabase() {
     );
   `);
 
+  // Migrations — ajout de colonnes si elles n'existent pas encore
+  try { db.exec("ALTER TABLE products ADD COLUMN price_unit REAL DEFAULT 0"); } catch {}
+  try { db.exec("ALTER TABLE sales ADD COLUMN unit_type TEXT DEFAULT 'douzaine'"); } catch {}
+
   const adminExists = db.prepare("SELECT id FROM users WHERE role = 'admin'").get();
   if (!adminExists) {
     const hash = bcrypt.hashSync('admin123', 10);

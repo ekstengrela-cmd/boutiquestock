@@ -41,7 +41,7 @@ function categoryLabel(cat) { return CATEGORIES[cat] || cat; }
 function categoryIcon(cat)  { return CAT_ICONS[cat] || '👗'; }
 
 function formatPrice(p) {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(p || 0);
+  return new Intl.NumberFormat('fr-FR').format(Math.round(p || 0)) + ' F CFA';
 }
 
 function formatDate(d) {
@@ -408,14 +408,20 @@ function showProductModal(productId = null) {
         </div>
       </div>
 
+      <div class="form-group">
+        <label>Couleur</label>
+        <input class="form-control" name="color" value="${p?.color || ''}" placeholder="ex: Blanc, Noir...">
+      </div>
+
       <div class="form-row">
         <div class="form-group">
-          <label>Couleur</label>
-          <input class="form-control" name="color" value="${p?.color || ''}" placeholder="ex: Blanc, Noir...">
+          <label>Prix à la douzaine (F CFA) <span class="required">*</span></label>
+          <input class="form-control" name="price" type="number" step="1" min="0" required value="${p?.price ?? ''}" placeholder="ex: 12500">
         </div>
         <div class="form-group">
-          <label>Prix (€) <span class="required">*</span></label>
-          <input class="form-control" name="price" type="number" step="0.01" min="0" required value="${p?.price ?? ''}" placeholder="0.00">
+          <label>Prix à l'unité (F CFA)</label>
+          <input class="form-control" name="price_unit" type="number" step="1" min="0" value="${p?.price_unit ?? ''}" placeholder="Auto = douzaine ÷ 12">
+          <div class="text-muted mt-1">Laissez vide pour calculer automatiquement.</div>
         </div>
       </div>
 
@@ -458,6 +464,7 @@ function onCategoryChange(cat, keepValues = false) {
 async function saveProduct(e, productId) {
   e.preventDefault();
   const fd = new FormData(e.target);
+  const priceUnit = fd.get('price_unit');
   const data = {
     name: fd.get('name').trim(),
     category: fd.get('category'),
@@ -465,6 +472,7 @@ async function saveProduct(e, productId) {
     size: fd.get('size') || null,
     color: fd.get('color')?.trim() || null,
     price: parseFloat(fd.get('price')),
+    price_unit: priceUnit ? parseFloat(priceUnit) : null,
     stock: parseInt(fd.get('stock')) || 0,
     low_stock_threshold: parseInt(fd.get('low_stock_threshold')) || 5,
   };
@@ -706,22 +714,36 @@ function _renderSellView(filterCat = '', filterSearch = '') {
   );
 
   const cards = filtered.map(p => {
-    const inCart = cart.find(c => c.product_id === p.id);
+    const inCartDz  = cart.find(c => c.product_id === p.id && c.unit_type === 'douzaine');
+    const inCartUnit = cart.find(c => c.product_id === p.id && c.unit_type === 'unite');
     const outOfStock = p.stock === 0;
+    const priceUnit  = p.price_unit || Math.round(p.price / 12);
     return `
-      <div class="product-card ${outOfStock ? 'out-of-stock-card' : ''}"
-           onclick="${outOfStock ? '' : 'addToCart(' + p.id + ')'}">
+      <div class="product-card ${outOfStock ? 'out-of-stock-card' : ''}">
         <div class="product-card-cat">${categoryIcon(p.category)} ${categoryLabel(p.category)}</div>
         <div class="product-card-name">${p.name}</div>
         <div class="product-card-details">
           ${[p.grammage, p.size, p.color].filter(Boolean).join(' · ') || '&nbsp;'}
+        </div>
+        <div class="product-card-prices">
+          <span class="price-dz">Dz : ${formatPrice(p.price)}</span>
+          <span class="price-unit">Unité : ${formatPrice(priceUnit)}</span>
         </div>
         <div class="product-card-stock">
           <span class="badge ${outOfStock ? 'badge-danger' : p.stock <= p.low_stock_threshold ? 'badge-warning' : 'badge-success'}">
             ${outOfStock ? 'Rupture' : p.stock + ' dispo'}
           </span>
         </div>
-        ${inCart ? `<div class="product-card-in-cart">${inCart.quantity}</div>` : ''}
+        ${!outOfStock ? `
+          <div class="product-card-btns">
+            <button class="btn-sell-dz ${inCartDz ? 'active' : ''}" onclick="addToCart(${p.id},'douzaine')">
+              📦 Douzaine${inCartDz ? ' ×' + inCartDz.quantity : ''}
+            </button>
+            <button class="btn-sell-unit ${inCartUnit ? 'active' : ''}" onclick="addToCart(${p.id},'unite')">
+              1️⃣ Unité${inCartUnit ? ' ×' + inCartUnit.quantity : ''}
+            </button>
+          </div>
+        ` : ''}
       </div>
     `;
   }).join('');
@@ -729,16 +751,23 @@ function _renderSellView(filterCat = '', filterSearch = '') {
   const cartHtml = cart.length === 0 ? `
     <div class="cart-empty">
       <div class="cart-empty-icon">🛒</div>
-      <div>Cliquez sur un produit<br>pour l'ajouter au panier</div>
+      <div>Cliquez sur Douzaine ou Unité<br>pour ajouter un article</div>
     </div>
   ` : cart.map((item, idx) => {
     const p = allProducts.find(x => x.id === item.product_id);
     if (!p) return '';
+    const isDz      = item.unit_type !== 'unite';
+    const unitPrice = isDz ? p.price : (p.price_unit || Math.round(p.price / 12));
+    const sub       = [p.grammage, p.size, p.color].filter(Boolean).join(' · ') || categoryLabel(p.category);
     return `
       <div class="cart-item">
         <div class="cart-item-info">
           <div class="cart-item-name">${p.name}</div>
-          <div class="cart-item-sub">${[p.grammage, p.size, p.color].filter(Boolean).join(' · ') || categoryLabel(p.category)}</div>
+          <div class="cart-item-sub">
+            ${sub}
+            <span class="cart-unit-badge ${isDz ? 'badge-dz' : 'badge-unit'}">${isDz ? 'Dz' : 'Unité'}</span>
+          </div>
+          <div class="cart-item-uprice">${formatPrice(unitPrice)} / ${isDz ? 'dz' : 'unité'}</div>
         </div>
         <div class="cart-qty-controls">
           <button class="qty-btn" onclick="changeCartQty(${idx}, -1)">−</button>
@@ -752,7 +781,10 @@ function _renderSellView(filterCat = '', filterSearch = '') {
 
   const total = cart.reduce((sum, item) => {
     const p = allProducts.find(x => x.id === item.product_id);
-    return sum + (p ? p.price * item.quantity : 0);
+    if (!p) return sum;
+    const isDz      = item.unit_type !== 'unite';
+    const unitPrice = isDz ? p.price : (p.price_unit || Math.round(p.price / 12));
+    return sum + unitPrice * item.quantity;
   }, 0);
 
   setView(`
@@ -803,14 +835,14 @@ function _renderSellView(filterCat = '', filterSearch = '') {
   `);
 }
 
-function addToCart(productId) {
+function addToCart(productId, unitType = 'douzaine') {
   const p = allProducts.find(x => x.id === productId);
   if (!p || p.stock === 0) return;
-  const existing = cart.find(c => c.product_id === productId);
+  const existing = cart.find(c => c.product_id === productId && c.unit_type === unitType);
   if (existing) {
     if (existing.quantity < p.stock) existing.quantity++;
   } else {
-    cart.push({ product_id: productId, quantity: 1 });
+    cart.push({ product_id: productId, quantity: 1, unit_type: unitType });
   }
   const filterCat    = document.getElementById('sell-cat')?.value || '';
   const filterSearch = document.getElementById('sell-search')?.value || '';
@@ -878,13 +910,13 @@ async function confirmSale() {
     const saleDate   = new Date();
 
     const receiptLines = items.map((item, i) => {
-      const r = res.results[i];
-      const p = allProducts.find(x => x.id === item.product_id) ||
-                { grammage: null, size: null, color: null };
+      const r   = res.results[i];
+      const p   = allProducts.find(x => x.id === item.product_id) || {};
       const sub = [p.grammage, p.size, p.color].filter(Boolean).join(' · ');
+      const typeLabel = item.unit_type === 'unite' ? 'unité' : 'douzaine';
       return `
         <div class="receipt-row">
-          <span>${r.product_name} × ${r.quantity}</span>
+          <span>${r.product_name} × ${r.quantity} <em style="font-size:.8em;color:var(--gray-400)">(${typeLabel})</em></span>
           <span>${formatPrice(r.total)}</span>
         </div>
         ${sub ? `<div style="font-size:.75rem;color:var(--gray-400);margin:-4px 0 4px 0">${sub}</div>` : ''}
@@ -987,7 +1019,12 @@ function _renderHistoryView(sales, sellers) {
         <div style="font-weight:600">${s.product_name}</div>
         <div class="text-muted">${categoryLabel(s.category)}${s.grammage ? ' · ' + s.grammage : ''}${s.size ? ' · ' + s.size : ''}${s.color ? ' · ' + s.color : ''}</div>
       </td>
-      <td>${s.quantity}</td>
+      <td>
+        ${s.quantity}
+        <span class="badge ${s.unit_type === 'unite' ? 'badge-gray' : 'badge-primary'}" style="font-size:.7rem;margin-left:4px">
+          ${s.unit_type === 'unite' ? 'Unité' : 'Dz'}
+        </span>
+      </td>
       <td class="price">${formatPrice(s.unit_price)}</td>
       <td class="price"><strong>${formatPrice(s.total_price)}</strong></td>
     </tr>

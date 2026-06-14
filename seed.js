@@ -1,5 +1,5 @@
 /**
- * Script de données de démonstration
+ * Script de données de démonstration — Prix en F CFA
  * Lance : node seed.js
  */
 const { db, initDatabase } = require('./database');
@@ -7,7 +7,7 @@ const bcrypt = require('bcryptjs');
 
 initDatabase();
 
-console.log('\n🌱 Ajout des données de démonstration...\n');
+console.log('\n🌱 Initialisation du catalogue BoutiqueStock...\n');
 
 // ===== VENDEURS =====
 const vendeurs = [
@@ -27,79 +27,92 @@ for (const v of vendeurs) {
   }
 }
 
-// ===== PRODUITS =====
+// ===== CATALOGUE PRODUITS =====
+// prix = prix douzaine | price_unit = prix unité (auto si null)
 const produits = [
-  // Polos Adulte
-  { name: 'Polo Premium',   category: 'polo_adulte',   grammage: '220g', size: 'S',    color: 'Blanc',  price: 18.00, stock: 30, low_stock_threshold: 5 },
-  { name: 'Polo Premium',   category: 'polo_adulte',   grammage: '220g', size: 'M',    color: 'Blanc',  price: 18.00, stock: 45, low_stock_threshold: 5 },
-  { name: 'Polo Premium',   category: 'polo_adulte',   grammage: '220g', size: 'L',    color: 'Blanc',  price: 18.00, stock: 40, low_stock_threshold: 5 },
-  { name: 'Polo Premium',   category: 'polo_adulte',   grammage: '220g', size: 'XL',   color: 'Blanc',  price: 18.00, stock: 25, low_stock_threshold: 5 },
-  { name: 'Polo Premium',   category: 'polo_adulte',   grammage: '220g', size: 'XXL',  color: 'Blanc',  price: 18.00, stock: 3,  low_stock_threshold: 5 },
-  { name: 'Polo Premium',   category: 'polo_adulte',   grammage: '220g', size: 'M',    color: 'Marine', price: 18.00, stock: 35, low_stock_threshold: 5 },
-  { name: 'Polo Premium',   category: 'polo_adulte',   grammage: '220g', size: 'L',    color: 'Marine', price: 18.00, stock: 30, low_stock_threshold: 5 },
-  { name: 'Polo Classic',   category: 'polo_adulte',   grammage: '180g', size: 'S',    color: 'Noir',   price: 14.50, stock: 20, low_stock_threshold: 5 },
-  { name: 'Polo Classic',   category: 'polo_adulte',   grammage: '180g', size: 'M',    color: 'Noir',   price: 14.50, stock: 50, low_stock_threshold: 5 },
-  { name: 'Polo Classic',   category: 'polo_adulte',   grammage: '180g', size: 'L',    color: 'Noir',   price: 14.50, stock: 60, low_stock_threshold: 5 },
-  { name: 'Polo Classic',   category: 'polo_adulte',   grammage: '180g', size: 'XL',   color: 'Noir',   price: 14.50, stock: 0,  low_stock_threshold: 5 },
-  { name: 'Polo Classic',   category: 'polo_adulte',   grammage: '180g', size: 'M',    color: 'Rouge',  price: 14.50, stock: 15, low_stock_threshold: 5 },
 
-  // Polos Enfant
-  { name: 'Polo Enfant',    category: 'polo_enfant',   grammage: '180g', size: '4-6 ans',   color: 'Blanc',  price: 12.00, stock: 20, low_stock_threshold: 5 },
-  { name: 'Polo Enfant',    category: 'polo_enfant',   grammage: '180g', size: '6-8 ans',   color: 'Blanc',  price: 12.00, stock: 25, low_stock_threshold: 5 },
-  { name: 'Polo Enfant',    category: 'polo_enfant',   grammage: '180g', size: '8-10 ans',  color: 'Blanc',  price: 12.00, stock: 18, low_stock_threshold: 5 },
-  { name: 'Polo Enfant',    category: 'polo_enfant',   grammage: '180g', size: '10-12 ans', color: 'Blanc',  price: 12.00, stock: 4,  low_stock_threshold: 5 },
-  { name: 'Polo Enfant',    category: 'polo_enfant',   grammage: '180g', size: '6-8 ans',   color: 'Marine', price: 12.00, stock: 15, low_stock_threshold: 5 },
-  { name: 'Polo Enfant',    category: 'polo_enfant',   grammage: '180g', size: '8-10 ans',  color: 'Marine', price: 12.00, stock: 12, low_stock_threshold: 5 },
+  // ─── POLO ADULTE STANDARD ───────────────────────────────
+  { name: 'Polo Standard', category: 'polo_adulte', grammage: '180g', size: 'S',    color: 'Blanc',  price: 12500, price_unit: null, stock: 30, low_stock_threshold: 12 },
+  { name: 'Polo Standard', category: 'polo_adulte', grammage: '180g', size: 'M',    color: 'Blanc',  price: 12500, price_unit: null, stock: 50, low_stock_threshold: 12 },
+  { name: 'Polo Standard', category: 'polo_adulte', grammage: '180g', size: 'L',    color: 'Blanc',  price: 12500, price_unit: null, stock: 50, low_stock_threshold: 12 },
+  { name: 'Polo Standard', category: 'polo_adulte', grammage: '180g', size: 'XL',   color: 'Blanc',  price: 12500, price_unit: null, stock: 30, low_stock_threshold: 12 },
+  { name: 'Polo Standard', category: 'polo_adulte', grammage: '180g', size: 'XXL',  color: 'Blanc',  price: 12500, price_unit: null, stock: 10, low_stock_threshold: 12 },
+  { name: 'Polo Standard', category: 'polo_adulte', grammage: '180g', size: 'M',    color: 'Noir',   price: 12500, price_unit: null, stock: 40, low_stock_threshold: 12 },
+  { name: 'Polo Standard', category: 'polo_adulte', grammage: '180g', size: 'L',    color: 'Noir',   price: 12500, price_unit: null, stock: 40, low_stock_threshold: 12 },
+  { name: 'Polo Standard', category: 'polo_adulte', grammage: '180g', size: 'M',    color: 'Marine', price: 12500, price_unit: null, stock: 35, low_stock_threshold: 12 },
 
-  // T-Shirts Adulte
-  { name: 'T-Shirt Basic',  category: 'tshirt_adulte', grammage: '160g', size: 'XS',   color: 'Blanc',  price: 10.00, stock: 40, low_stock_threshold: 10 },
-  { name: 'T-Shirt Basic',  category: 'tshirt_adulte', grammage: '160g', size: 'S',    color: 'Blanc',  price: 10.00, stock: 60, low_stock_threshold: 10 },
-  { name: 'T-Shirt Basic',  category: 'tshirt_adulte', grammage: '160g', size: 'M',    color: 'Blanc',  price: 10.00, stock: 80, low_stock_threshold: 10 },
-  { name: 'T-Shirt Basic',  category: 'tshirt_adulte', grammage: '160g', size: 'L',    color: 'Blanc',  price: 10.00, stock: 70, low_stock_threshold: 10 },
-  { name: 'T-Shirt Basic',  category: 'tshirt_adulte', grammage: '160g', size: 'XL',   color: 'Blanc',  price: 10.00, stock: 30, low_stock_threshold: 10 },
-  { name: 'T-Shirt Basic',  category: 'tshirt_adulte', grammage: '160g', size: 'XXL',  color: 'Blanc',  price: 10.00, stock: 8,  low_stock_threshold: 10 },
-  { name: 'T-Shirt Basic',  category: 'tshirt_adulte', grammage: '160g', size: 'M',    color: 'Noir',   price: 10.00, stock: 55, low_stock_threshold: 10 },
-  { name: 'T-Shirt Basic',  category: 'tshirt_adulte', grammage: '160g', size: 'L',    color: 'Noir',   price: 10.00, stock: 45, low_stock_threshold: 10 },
-  { name: 'T-Shirt Basic',  category: 'tshirt_adulte', grammage: '160g', size: 'M',    color: 'Gris',   price: 10.00, stock: 35, low_stock_threshold: 10 },
-  { name: 'T-Shirt Heavy',  category: 'tshirt_adulte', grammage: '200g', size: 'M',    color: 'Blanc',  price: 13.50, stock: 25, low_stock_threshold: 5 },
-  { name: 'T-Shirt Heavy',  category: 'tshirt_adulte', grammage: '200g', size: 'L',    color: 'Blanc',  price: 13.50, stock: 30, low_stock_threshold: 5 },
-  { name: 'T-Shirt Heavy',  category: 'tshirt_adulte', grammage: '200g', size: 'XL',   color: 'Blanc',  price: 13.50, stock: 2,  low_stock_threshold: 5 },
-  { name: 'T-Shirt Heavy',  category: 'tshirt_adulte', grammage: '200g', size: 'M',    color: 'Marine', price: 13.50, stock: 20, low_stock_threshold: 5 },
+  // ─── POLO ADULTE PREMIUM ────────────────────────────────
+  { name: 'Polo Premium',  category: 'polo_adulte', grammage: '220g', size: 'S',    color: 'Blanc',  price: 18500, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'Polo Premium',  category: 'polo_adulte', grammage: '220g', size: 'M',    color: 'Blanc',  price: 18500, price_unit: null, stock: 36, low_stock_threshold: 12 },
+  { name: 'Polo Premium',  category: 'polo_adulte', grammage: '220g', size: 'L',    color: 'Blanc',  price: 18500, price_unit: null, stock: 48, low_stock_threshold: 12 },
+  { name: 'Polo Premium',  category: 'polo_adulte', grammage: '220g', size: 'XL',   color: 'Blanc',  price: 18500, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'Polo Premium',  category: 'polo_adulte', grammage: '220g', size: 'M',    color: 'Marine', price: 18500, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'Polo Premium',  category: 'polo_adulte', grammage: '220g', size: 'L',    color: 'Marine', price: 18500, price_unit: null, stock: 24, low_stock_threshold: 12 },
 
-  // T-Shirts Enfant
-  { name: 'T-Shirt Enfant', category: 'tshirt_enfant', grammage: '150g', size: '4-6 ans',   color: 'Blanc',  price: 8.00, stock: 30, low_stock_threshold: 8 },
-  { name: 'T-Shirt Enfant', category: 'tshirt_enfant', grammage: '150g', size: '6-8 ans',   color: 'Blanc',  price: 8.00, stock: 35, low_stock_threshold: 8 },
-  { name: 'T-Shirt Enfant', category: 'tshirt_enfant', grammage: '150g', size: '8-10 ans',  color: 'Blanc',  price: 8.00, stock: 25, low_stock_threshold: 8 },
-  { name: 'T-Shirt Enfant', category: 'tshirt_enfant', grammage: '150g', size: '10-12 ans', color: 'Blanc',  price: 8.00, stock: 20, low_stock_threshold: 8 },
-  { name: 'T-Shirt Enfant', category: 'tshirt_enfant', grammage: '150g', size: '12-14 ans', color: 'Blanc',  price: 8.00, stock: 3,  low_stock_threshold: 8 },
-  { name: 'T-Shirt Enfant', category: 'tshirt_enfant', grammage: '150g', size: '6-8 ans',   color: 'Noir',   price: 8.00, stock: 18, low_stock_threshold: 8 },
-  { name: 'T-Shirt Enfant', category: 'tshirt_enfant', grammage: '150g', size: '8-10 ans',  color: 'Noir',   price: 8.00, stock: 15, low_stock_threshold: 8 },
+  // ─── POLO ENFANT ────────────────────────────────────────
+  { name: 'Polo Enfant',   category: 'polo_enfant', grammage: '180g', size: '4-6 ans',   color: 'Blanc',  price: 11000, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'Polo Enfant',   category: 'polo_enfant', grammage: '180g', size: '6-8 ans',   color: 'Blanc',  price: 11000, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'Polo Enfant',   category: 'polo_enfant', grammage: '180g', size: '8-10 ans',  color: 'Blanc',  price: 11000, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'Polo Enfant',   category: 'polo_enfant', grammage: '180g', size: '10-12 ans', color: 'Blanc',  price: 11000, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'Polo Enfant',   category: 'polo_enfant', grammage: '180g', size: '6-8 ans',   color: 'Marine', price: 11000, price_unit: null, stock: 24, low_stock_threshold: 12 },
 
-  // Casquettes
-  { name: 'Casquette Classic', category: 'casquette', grammage: null, size: 'Unique', color: 'Noir',   price: 9.90, stock: 50, low_stock_threshold: 10 },
-  { name: 'Casquette Classic', category: 'casquette', grammage: null, size: 'Unique', color: 'Blanc',  price: 9.90, stock: 35, low_stock_threshold: 10 },
-  { name: 'Casquette Classic', category: 'casquette', grammage: null, size: 'Unique', color: 'Marine', price: 9.90, stock: 40, low_stock_threshold: 10 },
-  { name: 'Casquette Classic', category: 'casquette', grammage: null, size: 'Unique', color: 'Rouge',  price: 9.90, stock: 4,  low_stock_threshold: 10 },
-  { name: 'Casquette Snapback', category: 'casquette', grammage: null, size: 'S/M',   color: 'Noir',   price: 12.00, stock: 20, low_stock_threshold: 5 },
-  { name: 'Casquette Snapback', category: 'casquette', grammage: null, size: 'L/XL',  color: 'Noir',   price: 12.00, stock: 15, low_stock_threshold: 5 },
+  // ─── T-SHIRT ADULTE 180g ────────────────────────────────
+  { name: 'T-Shirt Adulte', category: 'tshirt_adulte', grammage: '180g', size: 'S',   color: 'Blanc',  price: 7000, price_unit: null, stock: 48, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte', category: 'tshirt_adulte', grammage: '180g', size: 'M',   color: 'Blanc',  price: 7000, price_unit: null, stock: 60, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte', category: 'tshirt_adulte', grammage: '180g', size: 'L',   color: 'Blanc',  price: 7000, price_unit: null, stock: 60, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte', category: 'tshirt_adulte', grammage: '180g', size: 'XL',  color: 'Blanc',  price: 7000, price_unit: null, stock: 36, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte', category: 'tshirt_adulte', grammage: '180g', size: 'XXL', color: 'Blanc',  price: 7000, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte', category: 'tshirt_adulte', grammage: '180g', size: 'M',   color: 'Noir',   price: 7000, price_unit: null, stock: 48, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte', category: 'tshirt_adulte', grammage: '180g', size: 'L',   color: 'Noir',   price: 7000, price_unit: null, stock: 36, low_stock_threshold: 12 },
+
+  // ─── T-SHIRT ADULTE 240g / 260g ─────────────────────────
+  { name: 'T-Shirt Adulte', category: 'tshirt_adulte', grammage: '240g', size: 'M',   color: 'Blanc',  price: 7500, price_unit: null, stock: 36, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte', category: 'tshirt_adulte', grammage: '240g', size: 'L',   color: 'Blanc',  price: 7500, price_unit: null, stock: 36, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte', category: 'tshirt_adulte', grammage: '240g', size: 'XL',  color: 'Blanc',  price: 7500, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte', category: 'tshirt_adulte', grammage: '260g', size: 'M',   color: 'Blanc',  price: 7500, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte', category: 'tshirt_adulte', grammage: '260g', size: 'L',   color: 'Blanc',  price: 7500, price_unit: null, stock: 24, low_stock_threshold: 12 },
+
+  // ─── T-SHIRT ADULTE VIP ─────────────────────────────────
+  { name: 'T-Shirt Adulte VIP', category: 'tshirt_adulte', grammage: '200g', size: 'M',   color: 'Blanc',  price: 12500, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte VIP', category: 'tshirt_adulte', grammage: '200g', size: 'L',   color: 'Blanc',  price: 12500, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte VIP', category: 'tshirt_adulte', grammage: '200g', size: 'XL',  color: 'Blanc',  price: 12500, price_unit: null, stock: 12, low_stock_threshold: 12 },
+  { name: 'T-Shirt Adulte VIP', category: 'tshirt_adulte', grammage: '200g', size: 'M',   color: 'Noir',   price: 12500, price_unit: null, stock: 24, low_stock_threshold: 12 },
+
+  // ─── T-SHIRT ENFANT ─────────────────────────────────────
+  { name: 'T-Shirt Enfant',     category: 'tshirt_enfant', grammage: '150g', size: '4-6 ans',   color: 'Blanc',  price: 6000, price_unit: null, stock: 36, low_stock_threshold: 12 },
+  { name: 'T-Shirt Enfant',     category: 'tshirt_enfant', grammage: '150g', size: '6-8 ans',   color: 'Blanc',  price: 6000, price_unit: null, stock: 36, low_stock_threshold: 12 },
+  { name: 'T-Shirt Enfant',     category: 'tshirt_enfant', grammage: '150g', size: '8-10 ans',  color: 'Blanc',  price: 6000, price_unit: null, stock: 36, low_stock_threshold: 12 },
+  { name: 'T-Shirt Enfant',     category: 'tshirt_enfant', grammage: '150g', size: '10-12 ans', color: 'Blanc',  price: 6000, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'T-Shirt Enfant',     category: 'tshirt_enfant', grammage: '150g', size: '12-14 ans', color: 'Blanc',  price: 6000, price_unit: null, stock: 5,  low_stock_threshold: 12 },
+
+  // ─── T-SHIRT ENFANT VIP ─────────────────────────────────
+  { name: 'T-Shirt Enfant VIP', category: 'tshirt_enfant', grammage: '180g', size: '4-6 ans',   color: 'Blanc',  price: 10000, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'T-Shirt Enfant VIP', category: 'tshirt_enfant', grammage: '180g', size: '6-8 ans',   color: 'Blanc',  price: 10000, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'T-Shirt Enfant VIP', category: 'tshirt_enfant', grammage: '180g', size: '8-10 ans',  color: 'Blanc',  price: 10000, price_unit: null, stock: 24, low_stock_threshold: 12 },
+  { name: 'T-Shirt Enfant VIP', category: 'tshirt_enfant', grammage: '180g', size: '10-12 ans', color: 'Blanc',  price: 10000, price_unit: null, stock: 12, low_stock_threshold: 12 },
+
+  // ─── CASQUETTES ─────────────────────────────────────────
+  { name: 'Casquette Classic',  category: 'casquette', grammage: null, size: 'Unique', color: 'Noir',   price: 5000,  price_unit: 500, stock: 60, low_stock_threshold: 12 },
+  { name: 'Casquette Classic',  category: 'casquette', grammage: null, size: 'Unique', color: 'Blanc',  price: 5000,  price_unit: 500, stock: 48, low_stock_threshold: 12 },
+  { name: 'Casquette Classic',  category: 'casquette', grammage: null, size: 'Unique', color: 'Marine', price: 5000,  price_unit: 500, stock: 48, low_stock_threshold: 12 },
 ];
 
-// Ne pas supprimer les produits existants (des ventes peuvent y être liées)
+// Calculer price_unit auto si null
+const stmt = db.prepare(`
+  INSERT INTO products (name, category, grammage, size, color, price, price_unit, stock, low_stock_threshold)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
 
 let added = 0;
 for (const p of produits) {
-  db.prepare(`
-    INSERT INTO products (name, category, grammage, size, color, price, stock, low_stock_threshold)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(p.name, p.category, p.grammage, p.size, p.color, p.price, p.stock, p.low_stock_threshold);
+  const pu = p.price_unit !== null ? p.price_unit : Math.round(p.price / 12);
+  stmt.run(p.name, p.category, p.grammage, p.size, p.color, p.price, pu, p.stock, p.low_stock_threshold);
   added++;
 }
 
-console.log(`✅ ${added} produits ajoutés`);
+console.log(`✅ ${added} produits ajoutés (prix en F CFA)`);
 console.log('\n📋 Comptes disponibles :');
 console.log('  admin   / admin123  (Administrateur)');
 console.log('  marie   / marie123  (Vendeur)');
 console.log('  thomas  / thomas123 (Vendeur)');
-console.log('  sophie  / sophie123 (Vendeur)');
-console.log('\n🚀 Lancez l\'application avec : npm start');
-console.log('   Puis ouvrez : http://localhost:3000\n');
+console.log('  sophie  / sophie123 (Vendeur)\n');

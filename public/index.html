@@ -2,8 +2,17 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>BoutiqueStock</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4F46E5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="BoutiqueStock">
+  <meta name="mobile-web-app-capable" content="yes">
+
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -19,11 +28,11 @@
       <form id="login-form" autocomplete="off">
         <div class="form-group">
           <label for="login-username">Identifiant</label>
-          <input type="text" id="login-username" placeholder="Votre identifiant" required autofocus>
+          <input type="text" id="login-username" placeholder="Votre identifiant" required autofocus autocomplete="username">
         </div>
         <div class="form-group">
           <label for="login-password">Mot de passe</label>
-          <input type="password" id="login-password" placeholder="Votre mot de passe" required>
+          <input type="password" id="login-password" placeholder="Votre mot de passe" required autocomplete="current-password">
         </div>
         <div id="login-error" class="error-banner" hidden></div>
         <button type="submit" class="btn btn-primary btn-block" id="login-btn">Se connecter</button>
@@ -34,6 +43,23 @@
   <!-- APPLICATION PRINCIPALE -->
   <div id="app-screen" class="app-screen" hidden>
 
+    <!-- OVERLAY MOBILE (ferme le sidebar) -->
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar(false)"></div>
+
+    <!-- HEADER MOBILE -->
+    <header class="mobile-header" id="mobile-header">
+      <button class="hamburger" onclick="toggleSidebar(true)" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="mobile-title">
+        <span>👕</span> BoutiqueStock
+      </div>
+      <button class="dark-toggle-mobile" onclick="toggleDark()" aria-label="Mode sombre">
+        <span id="dark-icon-mobile">🌙</span>
+      </button>
+    </header>
+
+    <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-logo">
@@ -43,6 +69,9 @@
             <div id="sidebar-role" class="role-badge"></div>
           </div>
         </div>
+        <button class="dark-toggle" onclick="toggleDark()" aria-label="Mode sombre">
+          <span id="dark-icon">🌙</span>
+        </button>
       </div>
 
       <nav id="sidebar-nav" class="sidebar-nav"></nav>
@@ -58,6 +87,7 @@
       </div>
     </aside>
 
+    <!-- CONTENU PRINCIPAL -->
     <main class="main-content" id="main-content">
       <div id="view-container" class="view-container"></div>
     </main>
@@ -78,7 +108,7 @@
   <!-- TOASTS -->
   <div id="toast-container" class="toast-container"></div>
 
-  <!-- ZONE D'IMPRESSION (invisible à l'écran, visible uniquement à l'impression) -->
+  <!-- ZONE D'IMPRESSION -->
   <div id="print-area"></div>
 
   <script src="/js/app.js"></script>

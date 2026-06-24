@@ -294,6 +294,14 @@ app.post('/api/sales', requireAuth, (req, res) => {
 
   try {
     db.exec('BEGIN');
+
+    // Generate receipt number for this transaction
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const todayCount = db.prepare(
+      "SELECT COUNT(DISTINCT receipt_number) AS c FROM sales WHERE DATE(created_at) = DATE('now') AND receipt_number IS NOT NULL"
+    ).get().c;
+    const receiptNumber = `BS-${today}-${String(todayCount + 1).padStart(4, '0')}`;
+
     for (const item of items) {
       const product = db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id);
       if (!product) throw new Error(`Produit introuvable (id: ${item.product_id})`);
@@ -301,17 +309,16 @@ app.post('/api/sales', requireAuth, (req, res) => {
         throw new Error(`Stock insuffisant pour "${product.name}" (disponible: ${product.stock})`);
       }
 
-      const unitType  = item.unit_type || 'douzaine';
-      const unitPrice = unitType === 'douzaine'
-        ? product.price
-        : (product.price_unit || Math.round(product.price / 12));
+      const unitType  = item.unit_type || 'gros';
+      const isGros    = unitType === 'gros' || unitType === 'douzaine';
+      const unitPrice = isGros ? product.price : (product.price_unit || Math.round(product.price / 12));
       const newStock  = product.stock - item.quantity;
       const total     = unitPrice * item.quantity;
 
       const result = db.prepare(`
-        INSERT INTO sales (user_id, product_id, quantity, unit_price, total_price, unit_type)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(req.session.user.id, item.product_id, item.quantity, unitPrice, total, unitType);
+        INSERT INTO sales (user_id, product_id, quantity, unit_price, total_price, unit_type, receipt_number)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(req.session.user.id, item.product_id, item.quantity, unitPrice, total, unitType, receiptNumber);
 
       db.prepare('UPDATE products SET stock = stock - ?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
         .run(item.quantity, item.product_id);
@@ -339,7 +346,7 @@ app.post('/api/sales', requireAuth, (req, res) => {
       });
     }
     db.exec('COMMIT');
-    res.json({ success: true, results });
+    res.json({ success: true, results, receiptNumber });
 
     // Envoyer les alertes email après la réponse (non-bloquant)
     if (alertItems.length > 0) {
@@ -415,8 +422,9 @@ app.delete('/api/users/:id', requireAdmin, (req, res) => {
 // ===== PARAMÈTRES EMAIL =====
 
 const CATEGORY_LABELS = {
-  polo_adulte: 'Polo Adulte', polo_enfant: 'Polo Enfant',
-  tshirt_adulte: 'T-Shirt Adulte', tshirt_enfant: 'T-Shirt Enfant', casquette: 'Casquette',
+  tshirt: 'T-Shirt', polo: 'Polo', polo_vip: 'Polo VIP',
+  tshirt_enfant: 'T-Shirt Enfant', polo_enfant: 'Polo Enfant', casquette: 'Casquette',
+  tshirt_adulte: 'T-Shirt', polo_adulte: 'Polo',
 };
 
 app.get('/api/settings', requireAdmin, (req, res) => {
@@ -468,17 +476,20 @@ app.post('/api/settings/test-email', requireAdmin, async (req, res) => {
 // ===== TABLEAU DE BORD =====
 
 app.get('/api/dashboard/stats', requireAdmin, (req, res) => {
-  const totalProducts   = db.prepare('SELECT COUNT(*) AS c FROM products').get().c;
-  const lowStockItems   = db.prepare('SELECT COUNT(*) AS c FROM products WHERE stock > 0 AND stock <= low_stock_threshold').get().c;
-  const outOfStock      = db.prepare('SELECT COUNT(*) AS c FROM products WHERE stock = 0').get().c;
-  const totalSalesToday = db.prepare("SELECT COALESCE(SUM(total_price),0) AS t FROM sales WHERE DATE(created_at)=DATE('now')").get().t;
-  const countToday      = db.prepare("SELECT COUNT(*) AS c FROM sales WHERE DATE(created_at)=DATE('now')").get().c;
-  const totalRevenue    = db.prepare('SELECT COALESCE(SUM(total_price),0) AS t FROM sales').get().t;
+  const totalProducts    = db.prepare('SELECT COUNT(*) AS c FROM products').get().c;
+  const lowStockItems    = db.prepare('SELECT COUNT(*) AS c FROM products WHERE stock > 0 AND stock <= low_stock_threshold').get().c;
+  const outOfStock       = db.prepare('SELECT COUNT(*) AS c FROM products WHERE stock = 0').get().c;
+  const totalSalesToday  = db.prepare("SELECT COALESCE(SUM(total_price),0) AS t FROM sales WHERE DATE(created_at)=DATE('now')").get().t;
+  const countToday       = db.prepare("SELECT COUNT(*) AS c FROM sales WHERE DATE(created_at)=DATE('now')").get().c;
+  const totalRevenue     = db.prepare('SELECT COALESCE(SUM(total_price),0) AS t FROM sales').get().t;
+  const totalSalesMonth  = db.prepare("SELECT COALESCE(SUM(total_price),0) AS t FROM sales WHERE strftime('%Y-%m', created_at)=strftime('%Y-%m','now')").get().t;
+  const stockValue       = db.prepare('SELECT COALESCE(SUM(stock * price), 0) AS v FROM products').get().v;
+  const sellerCount      = db.prepare("SELECT COUNT(*) AS c FROM users WHERE role='vendeur'").get().c;
 
   const recentSales = db.prepare(`
-    SELECT s.*, u.username AS seller_name, p.name AS product_name, p.category, p.size, p.color
+    SELECT s.*, u.username AS seller_name, p.name AS product_name, p.category
     FROM sales s JOIN users u ON s.user_id=u.id JOIN products p ON s.product_id=p.id
-    ORDER BY s.created_at DESC LIMIT 8
+    ORDER BY s.created_at DESC LIMIT 10
   `).all();
 
   const lowStockList = db.prepare(`
@@ -491,7 +502,67 @@ app.get('/api/dashboard/stats', requireAdmin, (req, res) => {
     GROUP BY DATE(created_at) ORDER BY day
   `).all();
 
-  res.json({ totalProducts, lowStockItems, outOfStock, totalSalesToday, countToday, totalRevenue, recentSales, lowStockList, salesByDay });
+  const topProducts = db.prepare(`
+    SELECT p.name, p.category, SUM(s.quantity) AS qty, SUM(s.total_price) AS revenue
+    FROM sales s JOIN products p ON s.product_id=p.id
+    WHERE s.created_at >= DATE('now', '-30 days')
+    GROUP BY s.product_id ORDER BY revenue DESC LIMIT 5
+  `).all();
+
+  res.json({ totalProducts, lowStockItems, outOfStock, totalSalesToday, countToday, totalRevenue,
+    totalSalesMonth, stockValue, sellerCount, recentSales, lowStockList, salesByDay, topProducts });
+});
+
+// ===== RAPPORTS =====
+
+app.get('/api/reports', requireAdmin, (req, res) => {
+  const { period, from, to, seller_id } = req.query;
+  const where = [];
+  const params = [];
+
+  if (from && to) {
+    where.push('DATE(s.created_at) BETWEEN ? AND ?');
+    params.push(from, to);
+  } else {
+    const periodMap = {
+      today:  "DATE(s.created_at) = DATE('now')",
+      week:   "s.created_at >= DATE('now', '-6 days')",
+      month:  "strftime('%Y-%m', s.created_at) = strftime('%Y-%m', 'now')",
+      year:   "strftime('%Y', s.created_at) = strftime('%Y', 'now')",
+    };
+    if (periodMap[period]) where.push(periodMap[period]);
+  }
+
+  if (seller_id) { where.push('s.user_id = ?'); params.push(seller_id); }
+
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+
+  const totals = db.prepare(`SELECT COALESCE(SUM(s.total_price),0) AS revenue, COUNT(*) AS count FROM sales s ${w}`).get(...params);
+
+  const byDay = db.prepare(`
+    SELECT DATE(s.created_at) AS day, SUM(s.total_price) AS total, COUNT(*) AS count
+    FROM sales s ${w} GROUP BY DATE(s.created_at) ORDER BY day
+  `).all(...params);
+
+  const topProducts = db.prepare(`
+    SELECT p.name, p.category, SUM(s.quantity) AS qty, SUM(s.total_price) AS revenue
+    FROM sales s JOIN products p ON s.product_id=p.id ${w}
+    GROUP BY s.product_id ORDER BY revenue DESC LIMIT 10
+  `).all(...params);
+
+  const bySeller = db.prepare(`
+    SELECT u.username, SUM(s.total_price) AS revenue, COUNT(*) AS count
+    FROM sales s JOIN users u ON s.user_id=u.id ${w}
+    GROUP BY s.user_id ORDER BY revenue DESC
+  `).all(...params);
+
+  const byCategory = db.prepare(`
+    SELECT p.category, SUM(s.total_price) AS revenue, SUM(s.quantity) AS qty
+    FROM sales s JOIN products p ON s.product_id=p.id ${w}
+    GROUP BY p.category ORDER BY revenue DESC
+  `).all(...params);
+
+  res.json({ ...totals, byDay, topProducts, bySeller, byCategory });
 });
 
 app.listen(PORT, () => {

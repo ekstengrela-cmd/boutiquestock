@@ -117,13 +117,14 @@ function checkAndAlert(oldStock, newStock, threshold) {
   return oldStock > threshold && newStock <= threshold;
 }
 
+app.set('trust proxy', 1); // Railway est derrière un proxy HTTPS
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
-  secret: 'boutique-secret-2024-xK9m',
+  secret: process.env.SESSION_SECRET || 'boutique-secret-2024-xK9m',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 8 * 60 * 60 * 1000 }
+  cookie: { maxAge: 8 * 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' }
 }));
 
 function requireAuth(req, res, next) {
@@ -201,7 +202,9 @@ app.put('/api/products/:id', requireAdmin, (req, res) => {
     WHERE id=?
   `).run(
     name?.trim() || product.name, category || product.category,
-    grammage || null, size || null, color ? color.trim() : null,
+    grammage !== undefined ? (grammage || null) : product.grammage,
+    size     !== undefined ? (size     || null) : product.size,
+    color    !== undefined ? (color ? color.trim() : null) : product.color,
     priceDz, priceUnit, parseInt(stock ?? product.stock),
     parseInt(low_stock_threshold ?? product.low_stock_threshold), req.params.id
   );
@@ -221,11 +224,14 @@ app.patch('/api/products/:id/stock', requireAdmin, (req, res) => {
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
   if (!product) return res.status(404).json({ error: 'Produit introuvable' });
 
+  const qty = parseInt(quantity);
+  if (isNaN(qty)) return res.status(400).json({ error: 'Quantité invalide' });
+
   let newStock;
   if (mode === 'set') {
-    newStock = parseInt(quantity);
+    newStock = qty;
   } else {
-    newStock = product.stock + parseInt(quantity);
+    newStock = product.stock + qty;
   }
 
   if (newStock < 0) return res.status(400).json({ error: 'Le stock ne peut pas être négatif' });
@@ -305,6 +311,10 @@ app.post('/api/sales', requireAuth, (req, res) => {
     for (const item of items) {
       const product = db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id);
       if (!product) throw new Error(`Produit introuvable (id: ${item.product_id})`);
+      item.quantity = parseInt(item.quantity);
+      if (isNaN(item.quantity) || item.quantity <= 0) {
+        throw new Error(`Quantité invalide pour "${product.name}"`);
+      }
       if (product.stock < item.quantity) {
         throw new Error(`Stock insuffisant pour "${product.name}" (disponible: ${product.stock})`);
       }
@@ -564,6 +574,9 @@ app.get('/api/reports', requireAdmin, (req, res) => {
 
   res.json({ ...totals, byDay, topProducts, bySeller, byCategory });
 });
+
+// Endpoint de santé (monitoring Railway)
+app.get('/api/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
 app.listen(PORT, () => {
   console.log(`\n🚀 Serveur démarré sur http://localhost:${PORT}`);

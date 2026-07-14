@@ -59,6 +59,15 @@ function initDatabase() {
   try { db.exec("ALTER TABLE sales ADD COLUMN unit_type TEXT DEFAULT 'douzaine'"); } catch {}
   try { db.exec("ALTER TABLE sales ADD COLUMN receipt_number TEXT"); } catch {}
 
+  // Migration one-shot : les stocks étaient saisis en DOUZAINES → conversion en UNITÉS (×12)
+  // 1 douzaine = 12 t-shirts. Le flag 'stock_in_units' garantit qu'on ne convertit qu'une fois.
+  const stockMigrated = db.prepare("SELECT value FROM settings WHERE key = 'stock_in_units'").get();
+  if (!stockMigrated) {
+    db.exec('UPDATE products SET stock = stock * 12, low_stock_threshold = low_stock_threshold * 12');
+    db.prepare("INSERT INTO settings (key, value) VALUES ('stock_in_units', '1')").run();
+    console.log('✅ Migration : stocks convertis de douzaines en unités (×12)');
+  }
+
   const adminExists = db.prepare("SELECT id FROM users WHERE role = 'admin'").get();
   if (!adminExists) {
     const hash = bcrypt.hashSync('admin123', 10);

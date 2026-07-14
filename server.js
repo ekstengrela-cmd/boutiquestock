@@ -58,7 +58,7 @@ async function sendStockAlertEmail(alertItems) {
       <td style="padding:10px 14px;color:#64748b">${p.category_label}${p.grammage ? ' · ' + p.grammage : ''}${p.size ? ' · ' + p.size : ''}${p.color ? ' · ' + p.color : ''}</td>
       <td style="padding:10px 14px;text-align:center">
         <span style="background:${p.new_stock === 0 ? '#fee2e2' : '#fef3c7'};color:${p.new_stock === 0 ? '#991b1b' : '#92400e'};padding:3px 10px;border-radius:12px;font-weight:700;font-size:13px">
-          ${p.new_stock === 0 ? 'RUPTURE' : p.new_stock + ' restant(s)'}
+          ${p.new_stock === 0 ? 'RUPTURE' : formatStockFr(p.new_stock) + ' restant'}
         </span>
       </td>
     </tr>
@@ -115,6 +115,16 @@ async function sendStockAlertEmail(alertItems) {
 // Vérifie si le stock vient de franchir le seuil (avant → après une vente ou modif)
 function checkAndAlert(oldStock, newStock, threshold) {
   return oldStock > threshold && newStock <= threshold;
+}
+
+// Formate un stock en unités sous forme "X douzaine(s) + Y unité(s)"
+function formatStockFr(units) {
+  units = units || 0;
+  const dz = Math.floor(units / 12), u = units % 12;
+  if (units === 0) return '0';
+  if (dz === 0) return `${u} unité(s)`;
+  if (u === 0)  return `${dz} douzaine(s)`;
+  return `${dz} douzaine(s) + ${u} unité(s)`;
 }
 
 app.set('trust proxy', 1); // Railway est derrière un proxy HTTPS
@@ -220,11 +230,17 @@ app.delete('/api/products/:id', requireAdmin, (req, res) => {
 });
 
 app.patch('/api/products/:id/stock', requireAdmin, (req, res) => {
-  const { quantity, mode } = req.body;
+  const { quantity, dozens, units, mode } = req.body;
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
   if (!product) return res.status(404).json({ error: 'Produit introuvable' });
 
-  const qty = parseInt(quantity);
+  // Saisie en douzaines + unités (1 douzaine = 12 unités), ou en unités brutes (quantity)
+  let qty;
+  if (dozens !== undefined || units !== undefined) {
+    qty = (parseInt(dozens) || 0) * 12 + (parseInt(units) || 0);
+  } else {
+    qty = parseInt(quantity);
+  }
   if (isNaN(qty)) return res.status(400).json({ error: 'Quantité invalide' });
 
   let newStock;
@@ -289,6 +305,25 @@ app.get('/api/sales', requireAuth, (req, res) => {
   res.json(sales);
 });
 
+// Récupérer toutes les lignes d'un reçu (pour réimpression, y compris dates passées)
+app.get('/api/sales/receipt/:number', requireAuth, (req, res) => {
+  const rows = db.prepare(`
+    SELECT s.*, u.username AS seller_name, p.name AS product_name,
+           p.category, COALESCE(s.unit_type, 'douzaine') AS unit_type
+    FROM sales s
+    JOIN users u ON s.user_id = u.id
+    JOIN products p ON s.product_id = p.id
+    WHERE s.receipt_number = ?
+    ORDER BY s.id
+  `).all(req.params.number);
+
+  if (!rows.length) return res.status(404).json({ error: 'Reçu introuvable' });
+  if (req.session.user.role === 'vendeur' && rows[0].user_id !== req.session.user.id) {
+    return res.status(403).json({ error: 'Ce reçu appartient à un autre vendeur' });
+  }
+  res.json(rows);
+});
+
 app.post('/api/sales', requireAuth, (req, res) => {
   const { items } = req.body;
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -315,14 +350,16 @@ app.post('/api/sales', requireAuth, (req, res) => {
       if (isNaN(item.quantity) || item.quantity <= 0) {
         throw new Error(`Quantité invalide pour "${product.name}"`);
       }
-      if (product.stock < item.quantity) {
-        throw new Error(`Stock insuffisant pour "${product.name}" (disponible: ${product.stock})`);
-      }
-
       const unitType  = item.unit_type || 'gros';
       const isGros    = unitType === 'gros' || unitType === 'douzaine';
+      // Gros = vente par douzaine → 12 unités déduites par douzaine vendue
+      const unitsSold = isGros ? item.quantity * 12 : item.quantity;
+      if (product.stock < unitsSold) {
+        throw new Error(`Stock insuffisant pour "${product.name}" (disponible : ${formatStockFr(product.stock)})`);
+      }
+
       const unitPrice = isGros ? product.price : (product.price_unit || Math.round(product.price / 12));
-      const newStock  = product.stock - item.quantity;
+      const newStock  = product.stock - unitsSold;
       const total     = unitPrice * item.quantity;
 
       const result = db.prepare(`
@@ -331,7 +368,7 @@ app.post('/api/sales', requireAuth, (req, res) => {
       `).run(req.session.user.id, item.product_id, item.quantity, unitPrice, total, unitType, receiptNumber);
 
       db.prepare('UPDATE products SET stock = stock - ?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
-        .run(item.quantity, item.product_id);
+        .run(unitsSold, item.product_id);
 
       // Détecter le franchissement du seuil d'alerte
       if (checkAndAlert(product.stock, newStock, product.low_stock_threshold)) {
@@ -493,7 +530,8 @@ app.get('/api/dashboard/stats', requireAdmin, (req, res) => {
   const countToday       = db.prepare("SELECT COUNT(*) AS c FROM sales WHERE DATE(created_at)=DATE('now')").get().c;
   const totalRevenue     = db.prepare('SELECT COALESCE(SUM(total_price),0) AS t FROM sales').get().t;
   const totalSalesMonth  = db.prepare("SELECT COALESCE(SUM(total_price),0) AS t FROM sales WHERE strftime('%Y-%m', created_at)=strftime('%Y-%m','now')").get().t;
-  const stockValue       = db.prepare('SELECT COALESCE(SUM(stock * price), 0) AS v FROM products').get().v;
+  // Stock en unités, prix = prix de la douzaine → valeur = (stock / 12) × prix douzaine
+  const stockValue       = db.prepare('SELECT COALESCE(SUM((stock / 12.0) * price), 0) AS v FROM products').get().v;
   const sellerCount      = db.prepare("SELECT COUNT(*) AS c FROM users WHERE role='vendeur'").get().c;
 
   const recentSales = db.prepare(`
@@ -575,7 +613,7 @@ app.get('/api/reports', requireAdmin, (req, res) => {
   res.json({ ...totals, byDay, topProducts, bySeller, byCategory });
 });
 
-// Endpoint de santé (monitoring Railway)
+// Endpoint de santé (monitoring Railway).
 app.get('/api/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
 app.listen(PORT, () => {

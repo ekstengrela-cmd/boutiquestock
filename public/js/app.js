@@ -66,6 +66,37 @@ function getUnitPrice(p, unitType) {
   return unitTypeIsGros(unitType) ? p.price : (p.price_unit || Math.round(p.price / 12));
 }
 
+/* ===== STOCK EN DOUZAINES + UNITÉS (1 douzaine = 12 unités) ===== */
+function stockDz(units) { return Math.floor((units || 0) / 12); }
+function stockU(units)  { return (units || 0) % 12; }
+
+// Affichage long : "4 douzaines + 3 unités"
+function formatStock(units) {
+  units = units || 0;
+  const dz = stockDz(units), u = stockU(units);
+  if (units === 0) return '0';
+  if (dz === 0) return `${u} unité${u > 1 ? 's' : ''}`;
+  if (u === 0)  return `${dz} douzaine${dz > 1 ? 's' : ''}`;
+  return `${dz} dz + ${u} u`;
+}
+
+// Affichage court pour les badges : "4 dz + 3 u"
+function stockShort(units) {
+  units = units || 0;
+  const dz = stockDz(units), u = stockU(units);
+  if (units === 0) return '0';
+  if (dz === 0) return `${u} u`;
+  if (u === 0)  return `${dz} dz`;
+  return `${dz} dz + ${u} u`;
+}
+
+// Unités déjà réservées dans le panier pour un produit (gros = 12 unités/douzaine)
+function cartUnitsFor(productId) {
+  return cart
+    .filter(c => c.product_id === productId)
+    .reduce((s, c) => s + (unitTypeIsGros(c.unit_type) ? c.quantity * 12 : c.quantity), 0);
+}
+
 /* ===== DARK MODE ===== */
 function toggleDark() {
   const isDark = document.documentElement.dataset.theme === 'dark';
@@ -249,7 +280,7 @@ async function renderDashboard() {
           <div class="alert-card ${p.stock === 0 ? 'out-of-stock' : 'low-stock'}">
             <div class="alert-product">${p.name}</div>
             <div class="alert-details">${categoryLabel(p.category)}</div>
-            <div class="alert-stock">${p.stock === 0 ? '❌ Rupture de stock' : '⚠️ ' + p.stock + ' restant(s)'}</div>
+            <div class="alert-stock">${p.stock === 0 ? '❌ Rupture de stock' : '⚠️ ' + formatStock(p.stock) + ' restant'}</div>
           </div>
         `).join('')}
       </div>
@@ -374,7 +405,7 @@ function _renderProductsView(products) {
       ${isAdmin ? `<td class="price">${formatPrice(p.price)}<br><span style="font-size:.75rem;color:var(--text-muted)">${formatPrice(p.price_unit || Math.round(p.price/12))} (détail)</span></td>` : ''}
       <td>
         <span class="badge ${p.stock === 0 ? 'badge-danger' : p.stock <= p.low_stock_threshold ? 'badge-warning' : 'badge-success'}">
-          ${p.stock}
+          ${stockShort(p.stock)}
         </span>
       </td>
       ${isAdmin ? `
@@ -479,13 +510,17 @@ function showProductModal(productId = null) {
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Stock ${p ? 'actuel' : 'initial'}</label>
-          <input class="form-control" name="stock" type="number" min="0" value="${p?.stock ?? 0}">
+          <label>Stock ${p ? 'actuel' : 'initial'} — Douzaines</label>
+          <input class="form-control" name="stock_dz" type="number" min="0" value="${p ? stockDz(p.stock) : 0}">
         </div>
         <div class="form-group">
-          <label>Seuil d'alerte</label>
-          <input class="form-control" name="low_stock_threshold" type="number" min="0" value="${p?.low_stock_threshold ?? 5}">
+          <label>+ Unités</label>
+          <input class="form-control" name="stock_u" type="number" min="0" max="11" value="${p ? stockU(p.stock) : 0}">
         </div>
+      </div>
+      <div class="form-group">
+        <label>Seuil d'alerte (en unités — ex: 12 = 1 douzaine)</label>
+        <input class="form-control" name="low_stock_threshold" type="number" min="0" value="${p?.low_stock_threshold ?? 12}">
       </div>
       <div class="form-actions">
         <button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>
@@ -504,8 +539,8 @@ async function saveProduct(e, productId) {
     category: fd.get('category'),
     price: parseFloat(fd.get('price')),
     price_unit: priceUnit ? parseFloat(priceUnit) : null,
-    stock: parseInt(fd.get('stock')) || 0,
-    low_stock_threshold: parseInt(fd.get('low_stock_threshold')) || 5,
+    stock: (parseInt(fd.get('stock_dz')) || 0) * 12 + (parseInt(fd.get('stock_u')) || 0),
+    low_stock_threshold: parseInt(fd.get('low_stock_threshold')) || 12,
   };
   const btn = e.target.querySelector('[type=submit]');
   btn.disabled = true; btn.textContent = 'Enregistrement...';
@@ -572,7 +607,7 @@ function _renderStockView(products) {
       </td>
       <td>
         <span class="badge ${p.stock === 0 ? 'badge-danger' : p.stock <= p.low_stock_threshold ? 'badge-warning' : 'badge-success'}">
-          ${p.stock === 0 ? '❌ Rupture' : p.stock + ' unité(s)'}
+          ${p.stock === 0 ? '❌ Rupture' : formatStock(p.stock)}
         </span>
       </td>
       <td>${p.low_stock_threshold}</td>
@@ -652,7 +687,7 @@ function filterStockView(search = '', status = '', cat = '') {
       </td>
       <td>
         <span class="badge ${p.stock === 0 ? 'badge-danger' : p.stock <= p.low_stock_threshold ? 'badge-warning' : 'badge-success'}">
-          ${p.stock === 0 ? '❌ Rupture' : p.stock + ' unité(s)'}
+          ${p.stock === 0 ? '❌ Rupture' : formatStock(p.stock)}
         </span>
       </td>
       <td>${p.low_stock_threshold}</td>
@@ -670,12 +705,18 @@ function showStockModal(productId) {
   openModal('Ajouter du stock', `
     <div class="info-box" style="margin-bottom:1rem">
       <strong>${p.name}</strong> — ${categoryLabel(p.category)}<br>
-      Stock actuel : <strong>${p.stock} unité(s)</strong>
+      Stock actuel : <strong>${formatStock(p.stock)}</strong>
     </div>
     <form onsubmit="submitStock(event, ${productId}, 'add')">
-      <div class="form-group">
-        <label>Quantité à ajouter <span class="required">*</span></label>
-        <input class="form-control" id="stock-qty" type="number" min="1" required placeholder="ex: 50" autofocus>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Douzaines à ajouter</label>
+          <input class="form-control" id="stock-dz" type="number" min="0" value="0" placeholder="ex: 4" autofocus>
+        </div>
+        <div class="form-group">
+          <label>+ Unités à ajouter</label>
+          <input class="form-control" id="stock-u" type="number" min="0" value="0" placeholder="ex: 6">
+        </div>
       </div>
       <div class="form-actions">
         <button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>
@@ -690,12 +731,18 @@ function showSetStockModal(productId) {
   if (!p) return;
   openModal('Définir le stock', `
     <div class="info-box" style="margin-bottom:1rem">
-      <strong>${p.name}</strong> — Stock actuel : <strong>${p.stock}</strong>
+      <strong>${p.name}</strong> — Stock actuel : <strong>${formatStock(p.stock)}</strong>
     </div>
     <form onsubmit="submitStock(event, ${productId}, 'set')">
-      <div class="form-group">
-        <label>Nouveau stock <span class="required">*</span></label>
-        <input class="form-control" id="stock-qty" type="number" min="0" required value="${p.stock}" autofocus>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Douzaines <span class="required">*</span></label>
+          <input class="form-control" id="stock-dz" type="number" min="0" required value="${stockDz(p.stock)}" autofocus>
+        </div>
+        <div class="form-group">
+          <label>+ Unités</label>
+          <input class="form-control" id="stock-u" type="number" min="0" max="11" value="${stockU(p.stock)}">
+        </div>
       </div>
       <div class="form-actions">
         <button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>
@@ -707,9 +754,14 @@ function showSetStockModal(productId) {
 
 async function submitStock(e, productId, mode) {
   e.preventDefault();
-  const qty = parseInt(document.getElementById('stock-qty').value);
+  const dozens = parseInt(document.getElementById('stock-dz').value) || 0;
+  const units  = parseInt(document.getElementById('stock-u').value) || 0;
+  if (mode === 'add' && dozens === 0 && units === 0) {
+    toast('Saisissez au moins une douzaine ou une unité', 'warning');
+    return;
+  }
   try {
-    await api('PATCH', `/api/products/${productId}/stock`, { quantity: qty, mode });
+    await api('PATCH', `/api/products/${productId}/stock`, { dozens, units, mode });
     toast('Stock mis à jour', 'success');
     closeModal();
     await renderStock();
@@ -746,12 +798,13 @@ function _renderSellView(filterCat = '', filterSearch = '') {
         </div>
         <div class="product-card-stock">
           <span class="badge ${outOfStock ? 'badge-danger' : p.stock <= p.low_stock_threshold ? 'badge-warning' : 'badge-success'}">
-            ${outOfStock ? 'Rupture' : p.stock + ' dispo'}
+            ${outOfStock ? 'Rupture' : stockShort(p.stock) + ' dispo'}
           </span>
         </div>
         ${!outOfStock ? `
           <div class="product-card-btns">
-            <button class="btn-sell-gros ${inCartGros ? 'active' : ''}" onclick="addToCart(${p.id},'gros')">
+            <button class="btn-sell-gros ${inCartGros ? 'active' : ''}" onclick="addToCart(${p.id},'gros')"
+              ${p.stock < 12 ? 'disabled style="opacity:.4" title="Stock insuffisant pour une douzaine"' : ''}>
               💰 Gros${inCartGros ? ' ×' + inCartGros.quantity : ''}
             </button>
             <button class="btn-sell-detail ${inCartDetail ? 'active' : ''}" onclick="addToCart(${p.id},'detail')">
@@ -787,12 +840,12 @@ function _renderSellView(filterCat = '', filterSearch = '') {
             ${categoryLabel(p.category)}
             <span class="cart-unit-badge ${isGros ? 'badge-gros' : 'badge-detail'}">${isGros ? 'Gros' : 'Détail'}</span>
           </div>
-          <div class="cart-item-uprice">${formatPrice(unitPrice)} / unité</div>
+          <div class="cart-item-uprice">${formatPrice(unitPrice)} / ${isGros ? 'douzaine' : 'unité'}</div>
         </div>
         <div class="cart-qty-controls">
           <button class="qty-btn" onclick="changeCartQty(${idx}, -1)">−</button>
           <span class="qty-val">${item.quantity}</span>
-          <button class="qty-btn" onclick="changeCartQty(${idx}, 1)" ${item.quantity >= p.stock ? 'disabled style="opacity:.4"' : ''}>+</button>
+          <button class="qty-btn" onclick="changeCartQty(${idx}, 1)" ${cartUnitsFor(p.id) + (isGros ? 12 : 1) > p.stock ? 'disabled style="opacity:.4"' : ''}>+</button>
         </div>
         <button class="cart-remove" onclick="removeFromCart(${idx})" title="Retirer">×</button>
       </div>
@@ -853,9 +906,15 @@ function toggleCart() {
 function addToCart(productId, unitType = 'gros') {
   const p = allProducts.find(x => x.id === productId);
   if (!p || p.stock === 0) return;
+  // Gros = 12 unités par douzaine — vérifier le stock restant (panier inclus)
+  const needed = unitTypeIsGros(unitType) ? 12 : 1;
+  if (cartUnitsFor(productId) + needed > p.stock) {
+    toast(`Stock insuffisant pour "${p.name}" (disponible : ${formatStock(p.stock)})`, 'warning');
+    return;
+  }
   const existing = cart.find(c => c.product_id === productId && c.unit_type === unitType);
   if (existing) {
-    if (existing.quantity < p.stock) existing.quantity++;
+    existing.quantity++;
   } else {
     cart.push({ product_id: productId, quantity: 1, unit_type: unitType });
   }
@@ -867,7 +926,14 @@ function addToCart(productId, unitType = 'gros') {
 function changeCartQty(idx, delta) {
   const item = cart[idx];
   const p = allProducts.find(x => x.id === item.product_id);
-  item.quantity = Math.max(1, Math.min(item.quantity + delta, p?.stock || 999));
+  if (delta > 0 && p) {
+    const needed = unitTypeIsGros(item.unit_type) ? 12 : 1;
+    if (cartUnitsFor(item.product_id) + needed > p.stock) {
+      toast(`Stock insuffisant (disponible : ${formatStock(p.stock)})`, 'warning');
+      return;
+    }
+  }
+  item.quantity = Math.max(1, item.quantity + delta);
   const filterCat    = document.getElementById('sell-cat')?.value || '';
   const filterSearch = document.getElementById('sell-search')?.value || '';
   _renderSellView(filterCat, filterSearch);
@@ -924,7 +990,8 @@ async function confirmSale() {
     if (!res) return;
 
     const total    = res.results.reduce((s, r) => s + r.total, 0);
-    const totalQty = res.results.reduce((s, r) => s + r.quantity, 0);
+    // Total en t-shirts : 1 douzaine vendue = 12 articles
+    const totalQty = res.results.reduce((s, r) => s + (unitTypeIsGros(r.unit_type) ? r.quantity * 12 : r.quantity), 0);
     const saleDate = new Date();
     const receiptNumber = res.receiptNumber || '';
 
@@ -978,7 +1045,7 @@ function printReceipt() {
     return `
       <div class="ticket-item">
         <span class="ticket-item-name">${r.product_name}</span>
-        <span class="ticket-item-qty">×${r.quantity}</span>
+        <span class="ticket-item-qty">×${r.quantity} ${isGros ? 'dz' : 'u'}</span>
         <span class="ticket-item-type">${isGros ? 'Gros' : 'Détail'}</span>
         <span class="ticket-item-price">${formatPrice(r.total)}</span>
       </div>
@@ -1052,6 +1119,7 @@ function _renderHistoryView(sales, sellers) {
       </td>
       <td class="price">${formatPrice(s.unit_price)}</td>
       <td class="price"><strong>${formatPrice(s.total_price)}</strong></td>
+      <td>${s.receipt_number ? `<button class="btn btn-sm btn-secondary" onclick="reprintReceipt('${s.receipt_number}')" title="Réimprimer le reçu">🖨️</button>` : ''}</td>
     </tr>
   `).join('');
 
@@ -1091,7 +1159,7 @@ function _renderHistoryView(sales, sellers) {
               <tr>
                 <th>Date / Reçu</th>
                 ${isAdmin ? '<th>Vendeur</th>' : ''}
-                <th>Produit</th><th>Qté</th><th>Prix unit.</th><th>Total</th>
+                <th>Produit</th><th>Qté</th><th>Prix unit.</th><th>Total</th><th>Reçu</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -1099,6 +1167,7 @@ function _renderHistoryView(sales, sellers) {
               <tr style="background:var(--surface2)">
                 <td colspan="${isAdmin ? 5 : 4}" style="text-align:right;font-weight:600;padding:.75rem 1rem;color:var(--text-2)">Total :</td>
                 <td class="price" style="padding:.75rem 1rem"><strong>${formatPrice(total)}</strong></td>
+                <td></td>
               </tr>
             </tfoot>
           </table>
@@ -1106,6 +1175,29 @@ function _renderHistoryView(sales, sellers) {
       `}
     </div>
   `);
+}
+
+// Réimpression d'un reçu (y compris ventes des dates passées)
+async function reprintReceipt(receiptNumber) {
+  try {
+    const rows = await api('GET', `/api/sales/receipt/${encodeURIComponent(receiptNumber)}`);
+    if (!rows || !rows.length) return;
+
+    window._lastSale = {
+      results: rows.map(r => ({
+        product_name: r.product_name,
+        quantity: r.quantity,
+        unit_type: r.unit_type,
+        total: r.total_price,
+      })),
+      total: rows.reduce((s, r) => s + r.total_price, 0),
+      totalQty: rows.reduce((s, r) => s + (unitTypeIsGros(r.unit_type) ? r.quantity * 12 : r.quantity), 0),
+      date: new Date(rows[0].created_at),
+      seller: rows[0].seller_name,
+      receiptNumber,
+    };
+    printReceipt();
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 async function applyHistoryFilters() {

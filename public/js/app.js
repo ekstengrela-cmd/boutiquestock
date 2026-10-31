@@ -625,6 +625,7 @@ function _renderStockView(products) {
   setView(`
     <div class="view-header">
       <div><h2>📦 Gestion du stock</h2><div class="view-subtitle">${products.length} références</div></div>
+      <button class="btn btn-danger" onclick="confirmResetAllStocks()">🔄 Réinitialiser tous les stocks à 0</button>
     </div>
 
     <div class="stats-grid" style="margin-bottom:1.25rem">
@@ -755,6 +756,30 @@ function showSetStockModal(productId) {
       </div>
     </form>
   `);
+}
+
+function confirmResetAllStocks() {
+  openModal('⚠️ Réinitialiser tous les stocks', `
+    <p class="confirm-text">
+      Voulez-vous vraiment mettre <strong>tous les stocks à 0</strong> ?
+      <br><br>
+      <span class="text-danger">⚠️ Cette action est irréversible et affecte tous les produits.</span>
+    </p>
+    <div class="form-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-danger" onclick="resetAllStocks()">🔄 Tout mettre à 0</button>
+    </div>
+  `);
+}
+
+async function resetAllStocks() {
+  try {
+    const res = await api('POST', '/api/products/reset-stocks', {});
+    if (!res) return;
+    toast(`${res.count} produit(s) remis à 0`, 'success');
+    closeModal();
+    await renderStock();
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 async function submitStock(e, productId, mode) {

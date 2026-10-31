@@ -613,6 +613,13 @@ app.get('/api/reports', requireAdmin, (req, res) => {
   res.json({ ...totals, byDay, topProducts, bySeller, byCategory });
 });
 
+// ===== RÉINITIALISATION DES STOCKS =====
+
+app.post('/api/products/reset-stocks', requireAdmin, (req, res) => {
+  const result = db.prepare('UPDATE products SET stock = 0, updated_at = CURRENT_TIMESTAMP').run();
+  res.json({ success: true, count: result.changes });
+});
+
 // Endpoint de santé (monitoring Railway).
 app.get('/api/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 

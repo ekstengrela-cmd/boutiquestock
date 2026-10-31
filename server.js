@@ -127,6 +127,12 @@ function formatStockFr(units) {
   return `${dz} douzaine(s) + ${u} unité(s)`;
 }
 
+const CATEGORY_LABELS = {
+  tshirt: 'T-Shirt', polo: 'Polo', polo_vip: 'Polo VIP',
+  tshirt_enfant: 'T-Shirt Enfant', polo_enfant: 'Polo Enfant', casquette: 'Casquette',
+  tshirt_adulte: 'T-Shirt', polo_adulte: 'Polo',
+};
+
 app.set('trust proxy', 1); // Railway est derrière un proxy HTTPS
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -467,12 +473,6 @@ app.delete('/api/users/:id', requireAdmin, (req, res) => {
 });
 
 // ===== PARAMÈTRES EMAIL =====
-
-const CATEGORY_LABELS = {
-  tshirt: 'T-Shirt', polo: 'Polo', polo_vip: 'Polo VIP',
-  tshirt_enfant: 'T-Shirt Enfant', polo_enfant: 'Polo Enfant', casquette: 'Casquette',
-  tshirt_adulte: 'T-Shirt', polo_adulte: 'Polo',
-};
 
 app.get('/api/settings', requireAdmin, (req, res) => {
   const s = getAllSettings();

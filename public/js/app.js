@@ -40,6 +40,10 @@ const CAT_ICONS = {
 const CAT_DISPLAY_ORDER = ['tshirt','polo','polo_vip','tshirt_enfant','polo_enfant','casquette'];
 
 /* ===== UTILITAIRES ===== */
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 function categoryLabel(cat) { return CATEGORIES[cat] || cat; }
 function categoryIcon(cat)  { return CAT_ICONS[cat] || '👗'; }
 function unitTypeLabel(ut) {
@@ -401,7 +405,7 @@ function _renderProductsView(products) {
 
   const tableRows = (prods) => prods.map(p => `
     <tr class="${p.stock === 0 ? 'row-out' : p.stock <= p.low_stock_threshold ? 'row-low' : ''}">
-      <td><strong>${p.name}</strong></td>
+      <td><strong>${escapeHtml(p.name)}</strong></td>
       ${isAdmin ? `<td class="price">${formatPrice(p.price)}<br><span style="font-size:.75rem;color:var(--text-muted)">${formatPrice(p.price_unit || Math.round(p.price/12))} (détail)</span></td>` : ''}
       <td>
         <span class="badge ${p.stock === 0 ? 'badge-danger' : p.stock <= p.low_stock_threshold ? 'badge-warning' : 'badge-success'}">
@@ -486,7 +490,7 @@ function showProductModal(productId = null) {
     <form id="product-form" onsubmit="saveProduct(event, ${productId || 'null'})">
       <div class="form-group">
         <label>Nom du produit <span class="required">*</span></label>
-        <input class="form-control" name="name" required value="${p?.name || ''}"
+        <input class="form-control" name="name" required value="${escapeHtml(p?.name || '')}"
           placeholder="ex: Polo Standard, T-Shirt VIP..." autofocus>
       </div>
       <div class="form-group">
@@ -565,7 +569,7 @@ function deleteProduct(productId) {
   if (!p) return;
   openModal('Supprimer le produit', `
     <p class="confirm-text">
-      Voulez-vous vraiment supprimer <strong>${p.name}</strong> ?
+      Voulez-vous vraiment supprimer <strong>${escapeHtml(p.name)}</strong> ?
       <br><br>
       <span class="text-danger">⚠️ Cette action est irréversible.</span>
     </p>
@@ -602,7 +606,7 @@ function _renderStockView(products) {
   const rows = sorted.map(p => `
     <tr class="${p.stock === 0 ? 'row-out' : p.stock <= p.low_stock_threshold ? 'row-low' : ''}">
       <td>
-        <div style="font-weight:600">${p.name}</div>
+        <div style="font-weight:600">${escapeHtml(p.name)}</div>
         <div class="text-muted">${categoryLabel(p.category)}</div>
       </td>
       <td>
@@ -643,13 +647,13 @@ function _renderStockView(products) {
         <span class="search-icon">🔍</span>
         <input type="text" placeholder="Rechercher..." oninput="filterStockView(this.value)" id="stock-search">
       </div>
-      <select class="filter-select" onchange="filterStockView('', this.value)" id="stock-status-filter">
+      <select class="filter-select" onchange="filterStockView('', this.value, '')" id="stock-status-filter">
         <option value="">Tous les statuts</option>
         <option value="out">Ruptures</option>
         <option value="low">Stocks bas</option>
         <option value="ok">Stocks OK</option>
       </select>
-      <select class="filter-select" onchange="filterStockView('','',this.value)" id="stock-cat-filter">
+      <select class="filter-select" onchange="filterStockView('', '', this.value)" id="stock-cat-filter">
         <option value="">Toutes catégories</option>
         ${CAT_DISPLAY_ORDER.map(k => `<option value="${k}">${categoryLabel(k)}</option>`).join('')}
       </select>
@@ -665,9 +669,10 @@ function _renderStockView(products) {
 }
 
 function filterStockView(search = '', status = '', cat = '') {
-  search = (search || document.getElementById('stock-search')?.value || '').toLowerCase();
-  status = status || document.getElementById('stock-status-filter')?.value || '';
-  cat    = cat    || document.getElementById('stock-cat-filter')?.value || '';
+  search = search !== '' ? search : (document.getElementById('stock-search')?.value || '');
+  search = search.toLowerCase();
+  status = status !== '' ? status : (document.getElementById('stock-status-filter')?.value || '');
+  cat    = cat    !== '' ? cat    : (document.getElementById('stock-cat-filter')?.value    || '');
   const filtered = allProducts.filter(p => {
     const matchSearch = !search || [p.name, categoryLabel(p.category)].some(v => v && v.toLowerCase().includes(search));
     const matchCat    = !cat || p.category === cat;
@@ -682,7 +687,7 @@ function filterStockView(search = '', status = '', cat = '') {
   if (tbody) tbody.innerHTML = sorted.map(p => `
     <tr class="${p.stock === 0 ? 'row-out' : p.stock <= p.low_stock_threshold ? 'row-low' : ''}">
       <td>
-        <div style="font-weight:600">${p.name}</div>
+        <div style="font-weight:600">${escapeHtml(p.name)}</div>
         <div class="text-muted">${categoryLabel(p.category)}</div>
       </td>
       <td>
@@ -704,7 +709,7 @@ function showStockModal(productId) {
   if (!p) return;
   openModal('Ajouter du stock', `
     <div class="info-box" style="margin-bottom:1rem">
-      <strong>${p.name}</strong> — ${categoryLabel(p.category)}<br>
+      <strong>${escapeHtml(p.name)}</strong> — ${categoryLabel(p.category)}<br>
       Stock actuel : <strong>${formatStock(p.stock)}</strong>
     </div>
     <form onsubmit="submitStock(event, ${productId}, 'add')">
@@ -731,7 +736,7 @@ function showSetStockModal(productId) {
   if (!p) return;
   openModal('Définir le stock', `
     <div class="info-box" style="margin-bottom:1rem">
-      <strong>${p.name}</strong> — Stock actuel : <strong>${formatStock(p.stock)}</strong>
+      <strong>${escapeHtml(p.name)}</strong> — Stock actuel : <strong>${formatStock(p.stock)}</strong>
     </div>
     <form onsubmit="submitStock(event, ${productId}, 'set')">
       <div class="form-row">
@@ -791,7 +796,7 @@ function _renderSellView(filterCat = '', filterSearch = '') {
     return `
       <div class="product-card ${outOfStock ? 'out-of-stock-card' : ''}">
         <div class="product-card-cat">${categoryIcon(p.category)} ${categoryLabel(p.category)}</div>
-        <div class="product-card-name">${p.name}</div>
+        <div class="product-card-name">${escapeHtml(p.name)}</div>
         <div class="product-card-prices">
           <span class="price-gros">💰 Gros : ${formatPrice(p.price)}</span>
           <span class="price-detail">🏷️ Détail : ${formatPrice(priceDetail)}</span>
@@ -835,7 +840,7 @@ function _renderSellView(filterCat = '', filterSearch = '') {
     return `
       <div class="cart-item">
         <div class="cart-item-info">
-          <div class="cart-item-name">${p.name}</div>
+          <div class="cart-item-name">${escapeHtml(p.name)}</div>
           <div class="cart-item-sub">
             ${categoryLabel(p.category)}
             <span class="cart-unit-badge ${isGros ? 'badge-gros' : 'badge-detail'}">${isGros ? 'Gros' : 'Détail'}</span>
@@ -933,7 +938,10 @@ function changeCartQty(idx, delta) {
       return;
     }
   }
-  item.quantity = Math.max(1, item.quantity + delta);
+  item.quantity += delta;
+  if (item.quantity <= 0) {
+    cart.splice(idx, 1);
+  }
   const filterCat    = document.getElementById('sell-cat')?.value || '';
   const filterSearch = document.getElementById('sell-search')?.value || '';
   _renderSellView(filterCat, filterSearch);
@@ -1112,7 +1120,7 @@ function _renderHistoryView(sales, sellers) {
     <tr>
       <td>${s.receipt_number ? `<span style="font-size:.75rem;font-weight:600;color:var(--primary)">${s.receipt_number}</span><br>` : ''}${formatDate(s.created_at)}</td>
       ${isAdmin ? `<td>${s.seller_name}</td>` : ''}
-      <td><div style="font-weight:600">${s.product_name}</div><div class="text-muted">${categoryLabel(s.category)}</div></td>
+      <td><div style="font-weight:600">${escapeHtml(s.product_name)}</div><div class="text-muted">${categoryLabel(s.category)}</div></td>
       <td>
         ${s.quantity}
         <span class="cart-unit-badge ${unitTypeIsGros(s.unit_type) ? 'badge-gros' : 'badge-detail'}" style="font-size:.7rem;margin-left:4px">${unitTypeLabel(s.unit_type)}</span>
@@ -1249,7 +1257,7 @@ function _renderReportsShell(sellers) {
         <option value="year">Cette année</option>
         <option value="custom">Période personnalisée</option>
       </select>
-      <div id="rep-custom" style="display:none;display:flex;gap:.5rem;align-items:center">
+      <div id="rep-custom" style="display:none;gap:.5rem;align-items:center">
         <input type="date" class="filter-select" id="rep-from">
         <span style="color:var(--text-muted)">au</span>
         <input type="date" class="filter-select" id="rep-to">
@@ -1307,7 +1315,7 @@ async function loadReport(period, from, to, sellerId, sellers) {
   const topRows = d.topProducts.map((p, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td><strong>${p.name}</strong><br><span class="text-muted">${categoryLabel(p.category)}</span></td>
+      <td><strong>${escapeHtml(p.name)}</strong><br><span class="text-muted">${categoryLabel(p.category)}</span></td>
       <td>${p.qty}</td>
       <td class="price">${formatPrice(p.revenue)}</td>
     </tr>
@@ -1316,7 +1324,7 @@ async function loadReport(period, from, to, sellerId, sellers) {
   // Par vendeur
   const sellerRows = d.bySeller.map(s => `
     <tr>
-      <td>${s.username}</td>
+      <td>${escapeHtml(s.username)}</td>
       <td>${s.count}</td>
       <td class="price">${formatPrice(s.revenue)}</td>
     </tr>
@@ -1438,7 +1446,7 @@ async function renderSellers() {
     <div class="seller-card">
       <div class="seller-avatar ${u.role === 'admin' ? 'admin-av' : ''}">${initials(u.username)}</div>
       <div class="seller-info">
-        <div class="seller-name">${u.username}</div>
+        <div class="seller-name">${escapeHtml(u.username)}</div>
         <div class="seller-role">${u.role === 'admin' ? '👑 Administrateur' : '🙋 Vendeur'} · Depuis le ${formatDateShort(u.created_at)}</div>
       </div>
       <div class="seller-actions">
@@ -1523,7 +1531,7 @@ async function saveUser(e, userId) {
 function deleteUser(userId, username) {
   openModal('Supprimer l\'utilisateur', `
     <p class="confirm-text">
-      Voulez-vous vraiment supprimer le compte <strong>${username}</strong> ?
+      Voulez-vous vraiment supprimer le compte <strong>${escapeHtml(username)}</strong> ?
       <br><br><span class="text-danger">⚠️ Cette action est irréversible.</span>
     </p>
     <div class="form-actions">
